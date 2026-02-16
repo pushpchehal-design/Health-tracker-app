@@ -42,6 +42,21 @@
   background-color: #444;
 }
 
+.admin-link-btn {
+  padding: 0.5rem 1rem;
+  background-color: #2a4a3a;
+  color: #fff;
+  border: 1px solid #3a5a4a;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.admin-link-btn:hover {
+  background-color: #3a5a4a;
+}
+
 .loading {
   display: flex;
   align-items: center;

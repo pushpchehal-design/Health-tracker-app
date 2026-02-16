@@ -1,0 +1,133 @@
+.admin-dashboard {
+  background: #1a1a1a;
+  min-height: 100vh;
+  color: #e0e0e0;
+  padding: 1rem;
+}
+
+.admin-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.admin-back-btn {
+  padding: 0.5rem 0.75rem;
+  background: #333;
+  color: #fff;
+  border: 1px solid #555;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.admin-back-btn:hover {
+  background: #444;
+}
+
+.admin-dashboard h1 {
+  font-size: 1.5rem;
+  margin: 0;
+  color: #fff;
+}
+
+.admin-loading,
+.admin-error {
+  margin: 1rem 0;
+}
+
+.admin-error {
+  color: #f66;
+}
+
+.admin-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .admin-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-user-list {
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #333;
+}
+
+.admin-table th {
+  background: #2a2a2a;
+  color: #aaa;
+  font-weight: 600;
+}
+
+.admin-table tbody tr {
+  cursor: pointer;
+}
+
+.admin-table tbody tr:hover {
+  background: #2a2a2a;
+}
+
+.admin-table tbody tr.selected {
+  background: #3a4a5a;
+}
+
+.admin-detail {
+  background: #252525;
+  border-radius: 8px;
+  padding: 1rem;
+  border: 1px solid #333;
+}
+
+.admin-hint {
+  color: #888;
+  margin: 0;
+}
+
+.admin-detail h2 {
+  font-size: 1.1rem;
+  margin: 0 0 1rem;
+  color: #fff;
+  word-break: break-all;
+}
+
+.admin-section {
+  margin-bottom: 1.5rem;
+}
+
+.admin-section h3 {
+  font-size: 0.95rem;
+  margin: 0 0 0.5rem;
+  color: #bbb;
+}
+
+.admin-json {
+  background: #1a1a1a;
+  padding: 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  overflow-x: auto;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+}

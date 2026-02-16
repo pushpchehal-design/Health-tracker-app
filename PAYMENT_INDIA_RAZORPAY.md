@@ -34,9 +34,9 @@ For **INR 149–249**, **UPI + cards + netbanking**, India-first with minimal fo
 ### 1. Razorpay account
 
 - Register at [dashboard.razorpay.com](https://dashboard.razorpay.com).
-- Razorpay asks for a **website URL** – you need a live deployment. See **[DEPLOYMENT_OPTIONS.md](./DEPLOYMENT_OPTIONS.md)** (e.g. Vercel/Netlify/Cloudflare Pages); use that URL as your business website in Razorpay.
-- Get **Key ID** and **Key Secret** (use **Test mode** first).
-- In Settings → Webhooks, add a webhook URL pointing to your Edge Function (e.g. `https://<project>.supabase.co/functions/v1/razorpay-webhook`). Subscribe to **payment.captured** (and optionally **order.paid**).
+- **Add your website:** Dashboard → **Account & Settings** (left sidebar) → **Business website detail** (under “Website and app settings”) → **Add website/app details** → **Proceed to update website/app** → choose **Website** → enter your live URL, e.g. `https://health-tracker-app-alpha.vercel.app` (your actual Vercel URL). Submit for review. In **Test mode** you can often proceed without full review; for **Live mode**, Razorpay may require policy pages (Privacy, Terms, Contact, Refunds – add simple pages or links when you go live).
+- Get **Key ID** and **Key Secret:** **Account & Settings** → **API Keys** (use **Test mode** first).
+- In **Settings** → **Webhooks**, add a webhook URL pointing to your Edge Function (e.g. `https://<project>.supabase.co/functions/v1/razorpay-webhook`). Subscribe to **payment.captured** (and optionally **order.paid**). You’ll do this when you implement the payment flow.
 
 ### 2. Supabase
 

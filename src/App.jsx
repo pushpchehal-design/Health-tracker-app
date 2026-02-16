@@ -4,6 +4,7 @@ import Auth from './components/Auth'
 import ProfileSetup from './components/ProfileSetup'
 import FamilyMemberSetup from './components/FamilyMemberSetup'
 import Dashboard from './components/Dashboard'
+import AdminDashboard from './components/AdminDashboard'
 import './App.css'
 
 function App() {
@@ -14,6 +15,8 @@ function App() {
   const [profileLoading, setProfileLoading] = useState(true)
   const [showFamilySetup, setShowFamilySetup] = useState(false)
   const [familySetupComplete, setFamilySetupComplete] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [showAdminView, setShowAdminView] = useState(false)
 
   useEffect(() => {
     if (configMissing) {
@@ -81,21 +84,21 @@ function App() {
 
   const loadUserProfile = async (userId) => {
     try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .single()
-
+      const [profileRes, adminRes] = await Promise.all([
+        supabase.from('user_profiles').select('*').eq('user_id', userId).single(),
+        supabase.from('admin_users').select('user_id').eq('user_id', userId).maybeSingle(),
+      ])
+      const { data, error } = profileRes
       if (error && error.code !== 'PGRST116') {
         console.error('Error loading profile:', error)
       } else {
         setUserProfile(data || null)
-        // Check if user has any family members
-        if (data) {
-          checkFamilyMembers(userId)
-        }
+        if (data) checkFamilyMembers(userId)
       }
+      const admin = !!adminRes.data
+      setIsAdmin(admin)
+      if (!admin) setShowAdminView(false)
+      else if (!profileRes.data) setShowAdminView(true) // admin with no profile: open Admin view by default
     } catch (err) {
       console.error('Error loading user profile:', err)
     } finally {
@@ -202,22 +205,42 @@ function App() {
     return <Auth />
   }
 
-  // Step 2: Show profile setup if user doesn't have a profile
-  if (!userProfile) {
-    return <ProfileSetup userId={user.id} onComplete={handleProfileComplete} />
+  // Admins skip profile and family setup — go straight to app (Admin view by default if no profile)
+  const isAdminNoProfile = isAdmin && !userProfile
+  if (!isAdmin) {
+    // Step 2: Show profile setup if user doesn't have a profile
+    if (!userProfile) {
+      return <ProfileSetup userId={user.id} onComplete={handleProfileComplete} />
+    }
+    // Step 3: Show family member setup prompt if profile exists but no family members yet
+    if (showFamilySetup && !familySetupComplete) {
+      return <FamilyMemberSetup userId={user.id} onComplete={handleFamilySetupComplete} onSkip={handleSkipFamilySetup} />
+    }
   }
 
-  // Step 3: Show family member setup prompt if profile exists but no family members yet
-  if (showFamilySetup && !familySetupComplete) {
-    return <FamilyMemberSetup userId={user.id} onComplete={handleFamilySetupComplete} onSkip={handleSkipFamilySetup} />
+  // Admin view only when explicitly opened (Back button sets showAdminView false)
+  if (isAdmin && showAdminView) {
+    return (
+      <AdminDashboard onBack={() => setShowAdminView(false)} />
+    )
   }
 
-  // Step 4: Show main dashboard with all family members
+  // Step 4: Show main dashboard with all family members (or minimal dashboard for admin with profile)
   return (
     <div className="app">
       <header className="header">
         <h1>Health Tracker</h1>
         <div className="user-info">
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setShowAdminView(true)}
+              className="admin-link-btn"
+              style={{ marginRight: '0.75rem' }}
+            >
+              Admin
+            </button>
+          )}
           <span>{user.email}</span>
           <button onClick={handleLogout} className="logout-btn">
             Logout
@@ -225,7 +248,7 @@ function App() {
         </div>
       </header>
       <main className="main-content">
-        <Dashboard userId={user.id} userProfile={userProfile} user={user} />
+        <Dashboard userId={user.id} userProfile={userProfile || null} user={user} />
       </main>
     </div>
   )

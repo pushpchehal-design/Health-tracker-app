@@ -11,7 +11,7 @@
     "ingest:ayurveda": "node --max-old-space-size=8192 scripts/ingest-ayurveda-rag.js",
     "supabase:login": "npx supabase login",
     "supabase:link": "npx supabase link --project-ref ogxcdxenrrrdpwlnwjhp",
-    "supabase:deploy": "npx supabase@beta functions deploy analyze-health-report --use-api && npx supabase@beta functions deploy generate-ayurveda-recommendations --use-api",
+    "supabase:deploy": "npx supabase@beta functions deploy analyze-health-report --use-api && npx supabase@beta functions deploy generate-ayurveda-recommendations --use-api && npx supabase@beta functions deploy admin-list-users --use-api",
     "supabase:secrets:from-env": "npx supabase secrets set --env-file .env"
 },
   "dependencies": {
