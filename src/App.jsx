@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from './lib/supabase'
+import { supabase, configMissing } from './lib/supabase'
 import Auth from './components/Auth'
 import ProfileSetup from './components/ProfileSetup'
 import FamilyMemberSetup from './components/FamilyMemberSetup'
@@ -16,6 +16,10 @@ function App() {
   const [familySetupComplete, setFamilySetupComplete] = useState(false)
 
   useEffect(() => {
+    if (configMissing) {
+      setLoading(false)
+      return
+    }
     console.log('App mounted, checking Supabase connection...')
     
     // Add a timeout to prevent infinite loading
@@ -28,7 +32,7 @@ function App() {
     }, 5000)
 
     // Check if user is logged in
-    supabase.auth.getSession()
+    supabase?.auth.getSession()
       .then(({ data: { session }, error }) => {
         clearTimeout(timeout)
         console.log('Session check complete:', { session: !!session, error })
@@ -56,7 +60,7 @@ function App() {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase?.auth.onAuthStateChange((_event, session) => {
       console.log('Auth state changed:', { user: !!session?.user })
       setUser(session?.user ?? null)
       if (session?.user) {
@@ -71,7 +75,7 @@ function App() {
 
     return () => {
       clearTimeout(timeout)
-      subscription.unsubscribe()
+      subscription?.unsubscribe()
     }
   }, [])
 
@@ -147,6 +151,24 @@ function App() {
     return (
       <div className="app" style={{ backgroundColor: '#242424', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div className="loading" style={{ color: '#fff', fontSize: '1.5rem' }}>Loading Health Tracker...</div>
+      </div>
+    )
+  }
+
+  // Show config missing (e.g. Vercel env vars not set) — avoids blank page
+  if (configMissing) {
+    return (
+      <div className="app" style={{ backgroundColor: '#242424', minHeight: '100vh', padding: '2rem', color: '#fff', maxWidth: '560px' }}>
+        <h1 style={{ color: '#f0ad4e' }}>Configuration missing</h1>
+        <p style={{ marginBottom: '1rem' }}>Supabase URL and anon key are not set. The app cannot connect to the backend.</p>
+        <p style={{ fontSize: '0.9rem', color: '#ccc', marginBottom: '0.5rem' }}>On <strong>Vercel</strong>:</p>
+        <ul style={{ fontSize: '0.9rem', color: '#888', marginLeft: '1.25rem', marginBottom: '1rem' }}>
+          <li>Project → <strong>Settings</strong> → <strong>Environment Variables</strong></li>
+          <li>Add <code style={{ background: '#333', padding: '0.1rem 0.3rem' }}>VITE_SUPABASE_URL</code> (e.g. <code style={{ background: '#333', padding: '0.1rem 0.3rem' }}>https://xxxx.supabase.co</code>)</li>
+          <li>Add <code style={{ background: '#333', padding: '0.1rem 0.3rem' }}>VITE_SUPABASE_ANON_KEY</code> (anon public key from Supabase → Settings → API)</li>
+          <li>Redeploy: <strong>Deployments</strong> → ⋮ on latest → <strong>Redeploy</strong></li>
+        </ul>
+        <p style={{ fontSize: '0.9rem', color: '#888', marginBottom: '1rem' }}>Locally: add them to <code style={{ background: '#333', padding: '0.1rem 0.3rem' }}>.env</code> and run <code style={{ background: '#333', padding: '0.1rem 0.3rem' }}>npm run dev</code>.</p>
       </div>
     )
   }
