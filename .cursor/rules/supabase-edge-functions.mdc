@@ -1,0 +1,16 @@
+---
+description: Auto-deploy analyze-health-report Edge Function when changed or when deploy is requested
+globs: supabase/functions/**/*
+alwaysApply: false
+---
+
+# Supabase Edge Functions
+
+## Deploy analyze-health-report
+
+- When you change `supabase/functions/analyze-health-report/index.ts` (or the user asks to deploy or redeploy the health report function), **run the deploy command automatically**. Do not ask the user for confirmation.
+- Use this command from the project root:
+  ```bash
+  cd "/Users/pushapkantchehal/Health Tracker/health-tracker-app" && npx supabase functions deploy analyze-health-report
+  ```
+- If `supabase` is not in PATH, use `npx supabase` as above.

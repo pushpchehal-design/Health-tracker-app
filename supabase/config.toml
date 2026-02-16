@@ -1,0 +1,7 @@
+project_id = "ogxcdxenrrrdpwlnwjhp"
+
+[functions.analyze-health-report]
+verify_jwt = false
+
+[functions.generate-ayurveda-recommendations]
+verify_jwt = false

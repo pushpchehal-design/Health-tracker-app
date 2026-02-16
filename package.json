@@ -1,0 +1,40 @@
+{
+  "name": "health-tracker-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+"preview": "vite preview",
+    "ingest:ayurveda": "node --max-old-space-size=8192 scripts/ingest-ayurveda-rag.js",
+    "supabase:login": "npx supabase login",
+    "supabase:link": "npx supabase link --project-ref ogxcdxenrrrdpwlnwjhp",
+    "supabase:deploy": "npx supabase@beta functions deploy analyze-health-report --use-api && npx supabase@beta functions deploy generate-ayurveda-recommendations --use-api",
+    "supabase:secrets:from-env": "npx supabase secrets set --env-file .env"
+},
+  "dependencies": {
+    "@supabase/supabase-js": "^2.91.1",
+    "dotenv": "^16.4.5",
+    "pdf-parse": "^1.1.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "recharts": "^3.7.0"
+  },
+  "devDependencies": {
+    "supabase": "^1.200.0",
+    "@eslint/js": "^9.39.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "vite": "npm:rolldown-vite@7.2.5"
+  },
+  "overrides": {
+    "vite": "npm:rolldown-vite@7.2.5"
+  }
+}

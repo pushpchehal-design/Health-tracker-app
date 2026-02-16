@@ -1,0 +1,440 @@
+.family-members {
+  margin-top: 2rem;
+}
+
+.family-members-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.family-members-header h2 {
+  margin: 0;
+  color: #fff;
+}
+
+.add-member-btn {
+  padding: 0.75rem 1.5rem;
+  background-color: #646cff;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.add-member-btn:hover {
+  background-color: #535bf2;
+}
+
+.member-form-card {
+  background-color: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.member-form-card h3 {
+  margin: 0 0 1.5rem 0;
+  color: #fff;
+}
+
+.error-message {
+  background-color: #ff4444;
+  color: #fff;
+  padding: 0.75rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.member-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  color: #888;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.form-group input,
+.form-group select {
+  padding: 0.75rem;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background-color: #242424;
+  color: #fff;
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #646cff;
+}
+
+.form-group textarea {
+  padding: 0.75rem;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background-color: #242424;
+  color: #fff;
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.medical-history-textarea {
+  min-height: 120px;
+}
+
+.form-hint {
+  display: block;
+  margin-top: 0.5rem;
+  color: #888;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.conditions-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 0.5rem;
+  background-color: #242424;
+  border: 1px solid #333;
+  border-radius: 6px;
+}
+
+.condition-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  color: #fff;
+  font-size: 0.9rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.condition-checkbox:hover {
+  background-color: #333;
+}
+
+.condition-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #646cff;
+}
+
+.condition-checkbox span {
+  flex: 1;
+}
+
+.selected-conditions {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background-color: #242424;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.selected-conditions strong {
+  color: #fff;
+}
+
+.condition-input-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.condition-input-group input {
+  flex: 1;
+}
+
+.add-condition-btn {
+  padding: 0.75rem 1.5rem;
+  background-color: #646cff;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.add-condition-btn:hover {
+  background-color: #535bf2;
+}
+
+.conditions-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.condition-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: #333;
+  color: #fff;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.remove-condition {
+  background: none;
+  border: none;
+  color: #ff4444;
+  cursor: pointer;
+  font-size: 1.2rem;
+  line-height: 1;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.remove-condition:hover {
+  color: #ff6666;
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.cancel-btn {
+  padding: 0.75rem 1.5rem;
+  background-color: #333;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.cancel-btn:hover {
+  background-color: #444;
+}
+
+.submit-btn {
+  padding: 0.75rem 1.5rem;
+  background-color: #646cff;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background-color: #535bf2;
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.members-list {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: #888;
+}
+
+.empty-state .hint {
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+.member-card {
+  background-color: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.5rem;
+}
+
+.member-info {
+  flex: 1;
+}
+
+.member-info h3 {
+  margin: 0 0 0.5rem 0;
+  color: #fff;
+  font-size: 1.2rem;
+}
+
+.relationship {
+  display: inline-block;
+  background-color: #333;
+  color: #888;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.member-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1rem;
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.member-details span {
+  display: flex;
+  align-items: center;
+}
+
+.conditions {
+  margin-top: 1rem;
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.conditions strong {
+  color: #fff;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.conditions-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.condition-tag-small {
+  background-color: #333;
+  color: #fff;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.medical-history {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #333;
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.medical-history strong {
+  color: #fff;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.medical-history p {
+  margin: 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.member-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.edit-btn,
+.delete-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.edit-btn {
+  background-color: #646cff;
+  color: #fff;
+}
+
+.edit-btn:hover {
+  background-color: #535bf2;
+}
+
+.delete-btn {
+  background-color: #ff4444;
+  color: #fff;
+}
+
+.delete-btn:hover {
+  background-color: #ff6666;
+}
+
+.loading {
+  text-align: center;
+  color: #888;
+  padding: 2rem;
+}
+
+@media (max-width: 600px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .member-card {
+    flex-direction: column;
+  }
+
+  .member-actions {
+    width: 100%;
+  }
+
+  .edit-btn,
+  .delete-btn {
+    flex: 1;
+  }
+}
