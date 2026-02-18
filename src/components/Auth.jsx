@@ -2,6 +2,10 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './Auth.css'
 
+// Razorpay verification: when user enters this as "email", sign in with the real Supabase user below
+const TEMP_ACCESS_LOGIN = 'Temp_Access'
+const TEMP_ACCESS_REAL_EMAIL = 'temp_razorpay@razorpay-verification.in'
+
 function Auth() {
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
@@ -23,8 +27,11 @@ function Auth() {
         if (error) throw error
         alert('Check your email for the confirmation link!')
       } else {
+        const loginId = (email || '').trim()
+        const isTempAccess = loginId.toLowerCase() === TEMP_ACCESS_LOGIN.toLowerCase()
+        const signInEmail = isTempAccess ? TEMP_ACCESS_REAL_EMAIL : loginId
         const { error } = await supabase.auth.signInWithPassword({
-          email,
+          email: signInEmail,
           password,
         })
         if (error) throw error
@@ -44,15 +51,16 @@ function Auth() {
         
         {error && <div className="error-message">{error}</div>}
         
-        <form onSubmit={handleSubmit} className="auth-form">
+        <form onSubmit={handleSubmit} className="auth-form" noValidate>
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">Email or login</label>
             <input
-              type="email"
+              type="text"
               id="email"
+              autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
+              placeholder="your@email.com or Temp_Access"
               required
             />
           </div>

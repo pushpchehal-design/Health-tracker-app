@@ -35,10 +35,27 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
   const [activeTab, setActiveTab] = useState('analysis') // 'analysis' | 'archived'
   const [selectedReportIdForView, setSelectedReportIdForView] = useState(null) // single report to show in Report Analysis tab
   const [archivedExpandedMembers, setArchivedExpandedMembers] = useState({}) // { memberId: true } for expanded sections
+  const [bloodMarkerReference, setBloodMarkerReference] = useState([])
+  const [remedyLookup, setRemedyLookup] = useState([])
 
   useEffect(() => {
     loadReports()
   }, [userId])
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      const [refRes, remedyRes] = await Promise.all([
+        supabase.from('blood_marker_reference').select('name, aliases'),
+        supabase.from('ayurveda_remedy_lookup').select('marker_name, condition, remedy_text, dosage_notes'),
+      ])
+      if (cancelled) return
+      if (!refRes.error) setBloodMarkerReference(refRes.data || [])
+      if (!remedyRes.error) setRemedyLookup(remedyRes.data || [])
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   // When reports load, default selected report to most recent non-archived
   useEffect(() => {
@@ -56,6 +73,29 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
   // 1. User clicks "Start Analysis"
   // 2. Analysis completes (in analyzeReport function)
   // 3. User uploads a new report
+
+  function getRemedyForParam(param, reference, remedyList) {
+    if (param.status !== 'abnormal' || !reference?.length || !remedyList?.length) return null
+    const nameTrim = (param.name || '').trim().toLowerCase()
+    const canonical = reference.find(
+      (r) => r.name?.toLowerCase() === nameTrim || (r.aliases || []).some((a) => String(a).toLowerCase() === nameTrim)
+    )?.name
+    if (!canonical) return null
+    const numFromStr = (s) => (s && parseFloat(String(s).replace(/[^0-9.-]/g, ' ').trim().split(/\s+/)[0])) ?? NaN
+    const valNum = numFromStr(param.value)
+    const rangeStr = param.normal_range || ''
+    const parts = rangeStr.replace(/[^0-9.-]/g, ' ').trim().split(/\s+/).filter(Boolean).map(Number).filter((n) => !Number.isNaN(n))
+    const low = parts[0]
+    const high = parts[1]
+    const condition = !Number.isNaN(valNum) && !Number.isNaN(low) && !Number.isNaN(high)
+      ? (valNum < low ? 'low' : 'high')
+      : null
+    if (!condition) return null
+    const remedy = remedyList.find(
+      (r) => (r.marker_name || '').trim().toLowerCase() === canonical.toLowerCase() && r.condition === condition
+    )
+    return remedy ? { remedy_text: remedy.remedy_text, dosage_notes: remedy.dosage_notes } : null
+  }
 
   const loadReports = async () => {
     try {
@@ -767,21 +807,32 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
                             </tr>
                           </thead>
                           <tbody>
-                            {parameters.map((param, index) => (
-                              <tr
-                                key={index}
-                                className={param.status === 'abnormal' ? 'parameter-abnormal' : 'parameter-normal'}
-                              >
-                                <td className="parameter-name">{param.name}</td>
-                                <td className="parameter-value">{param.value}</td>
-                                <td className="parameter-range">{param.normal_range}</td>
-                                <td className="parameter-status">
-                                  <span className={`status-indicator status-${param.status}`}>
-                                    {param.status === 'abnormal' ? '⚠️ Abnormal' : '✅ Normal'}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
+                            {parameters.flatMap((param, index) => {
+                              const remedy = getRemedyForParam(param, bloodMarkerReference, remedyLookup)
+                              return [
+                                <tr
+                                  key={index}
+                                  className={param.status === 'abnormal' ? 'parameter-abnormal' : 'parameter-normal'}
+                                >
+                                  <td className="parameter-name">{param.name}</td>
+                                  <td className="parameter-value">{param.value}</td>
+                                  <td className="parameter-range">{param.normal_range}</td>
+                                  <td className="parameter-status">
+                                    <span className={`status-indicator status-${param.status}`}>
+                                      {param.status === 'abnormal' ? '⚠️ Abnormal' : '✅ Normal'}
+                                    </span>
+                                  </td>
+                                </tr>,
+                                remedy ? (
+                                  <tr key={`rem-${index}`} className="parameter-remedy-row">
+                                    <td colSpan={4} className="parameter-remedy-cell">
+                                      <strong>Ayurvedic remedy (from database):</strong> {remedy.remedy_text}
+                                      {remedy.dosage_notes ? ` — ${remedy.dosage_notes}` : ''}
+                                    </td>
+                                  </tr>
+                                ) : null,
+                              ].filter(Boolean)
+                            })}
                           </tbody>
                         </table>
                       </div>

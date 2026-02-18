@@ -38,6 +38,8 @@ For **INR 149–249**, **UPI + cards + netbanking**, India-first with minimal fo
 - Get **Key ID** and **Key Secret:** **Account & Settings** → **API Keys** (use **Test mode** first).
 - In **Settings** → **Webhooks**, add a webhook URL pointing to your Edge Function (e.g. `https://<project>.supabase.co/functions/v1/razorpay-webhook`). Subscribe to **payment.captured** (and optionally **order.paid**). You’ll do this when you implement the payment flow.
 
+- **Temp login for Razorpay verification:** If Razorpay asks for test credentials to log in to your app, give them **Login: Temp_Access** and **Password: Temp_1234**. The app accepts “Temp_Access” as a login and signs in as a dedicated temp user. You must create that user once in Supabase: **Authentication** → **Users** → **Add user** → Email: `temp_razorpay@razorpay-verification.in`, Password: `Temp_1234`. After verification you can delete this user or change its password.
+
 ### 2. Supabase
 
 - **Secrets** (Edge Functions):  
