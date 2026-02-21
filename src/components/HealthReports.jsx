@@ -47,7 +47,7 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
     async function load() {
       const [refRes, remedyRes] = await Promise.all([
         supabase.from('blood_marker_reference').select('name, aliases'),
-        supabase.from('ayurveda_remedy_lookup').select('marker_name, condition, remedy_text, dosage_notes'),
+        supabase.from('ayurveda_remedy_lookup').select('marker_name, condition, remedy_text, lifestyle_modification, dosage_notes'),
       ])
       if (cancelled) return
       if (!refRes.error) setBloodMarkerReference(refRes.data || [])
@@ -94,7 +94,7 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
     const remedy = remedyList.find(
       (r) => (r.marker_name || '').trim().toLowerCase() === canonical.toLowerCase() && r.condition === condition
     )
-    return remedy ? { remedy_text: remedy.remedy_text, dosage_notes: remedy.dosage_notes } : null
+    return remedy ? { remedy_text: remedy.remedy_text, lifestyle_modification: remedy.lifestyle_modification, dosage_notes: remedy.dosage_notes } : null
   }
 
   const loadReports = async () => {
@@ -266,7 +266,12 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
   }
 
   const handleGenerateAyurveda = async () => {
-    if (!userId || !ayurvedaReportId || generatingAyurveda || !aiEnabled) return
+    if (!userId || !ayurvedaReportId || generatingAyurveda) return
+    if (!aiEnabled) {
+      setSelectedReportIdForView(ayurvedaReportId)
+      setAyurvedaMessage('Remedies from database are shown below each abnormal parameter. Turn on AI for personalized recommendations.')
+      return
+    }
     setGeneratingAyurveda(true)
     setAyurvedaMessage('')
     try {
@@ -827,6 +832,7 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
                                   <tr key={`rem-${index}`} className="parameter-remedy-row">
                                     <td colSpan={4} className="parameter-remedy-cell">
                                       <strong>Ayurvedic remedy (from database):</strong> {remedy.remedy_text}
+                                      {remedy.lifestyle_modification ? <><br /><strong>Lifestyle:</strong> {remedy.lifestyle_modification}</> : ''}
                                       {remedy.dosage_notes ? ` — ${remedy.dosage_notes}` : ''}
                                     </td>
                                   </tr>
@@ -927,7 +933,7 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
         <>
       <div className="ayurveda-generate-section">
         <h3>Generate Ayurveda analysis for existing report</h3>
-        <p className="ayurveda-generate-hint">Select family member and report, then generate recommendations (what to do + Ayurveda & home remedies).</p>
+        <p className="ayurveda-generate-hint">Select family member and report. With AI on: personalized recommendations. With AI off: remedies from database shown under each abnormal parameter.</p>
         <p className="ayurveda-context-hint">Recommendations consider pre-existing conditions and family history from the profile.</p>
         <div className="ayurveda-generate-form">
           <div className="form-group">
@@ -972,7 +978,7 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
           <button
             type="button"
             onClick={handleGenerateAyurveda}
-            disabled={!aiEnabled || !ayurvedaReportId || generatingAyurveda || reportsForAyurveda.length === 0}
+            disabled={!ayurvedaReportId || generatingAyurveda || reportsForAyurveda.length === 0}
             className="upload-btn ayurveda-generate-btn"
           >
             {generatingAyurveda ? 'Generating...' : 'Generate Ayurveda analysis'}
