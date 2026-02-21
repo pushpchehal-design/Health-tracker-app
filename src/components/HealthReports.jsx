@@ -759,18 +759,31 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
                         </tr>
                       </thead>
                       <tbody>
-                        {items.map((row) => (
-                          <tr key={row.id} className={row.status === 'abnormal' ? 'parameter-abnormal' : 'parameter-normal'}>
-                            <td className="parameter-name">{row.parameter_name}</td>
-                            <td className="parameter-value">{row.parameter_value}</td>
-                            <td className="parameter-range">{row.normal_range}</td>
-                            <td className="parameter-status">
-                              <span className={`status-indicator status-${row.status}`}>
-                                {row.status === 'abnormal' ? '⚠️ Abnormal' : '✅ Normal'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                        {items.flatMap((row) => {
+                          const param = { name: row.parameter_name, value: row.parameter_value, normal_range: row.normal_range, status: row.status }
+                          const remedy = getRemedyForParam(param, bloodMarkerReference, remedyLookup)
+                          return [
+                            <tr key={row.id} className={row.status === 'abnormal' ? 'parameter-abnormal' : 'parameter-normal'}>
+                              <td className="parameter-name">{row.parameter_name}</td>
+                              <td className="parameter-value">{row.parameter_value}</td>
+                              <td className="parameter-range">{row.normal_range}</td>
+                              <td className="parameter-status">
+                                <span className={`status-indicator status-${row.status}`}>
+                                  {row.status === 'abnormal' ? '⚠️ Abnormal' : '✅ Normal'}
+                                </span>
+                              </td>
+                            </tr>,
+                            remedy ? (
+                              <tr key={`rem-${row.id}`} className="parameter-remedy-row">
+                                <td colSpan={4} className="parameter-remedy-cell">
+                                  <strong>Ayurvedic remedy (from database):</strong> {remedy.remedy_text}
+                                  {remedy.lifestyle_modification ? <><br /><strong>Lifestyle:</strong> {remedy.lifestyle_modification}</> : ''}
+                                  {remedy.dosage_notes ? ` — ${remedy.dosage_notes}` : ''}
+                                </td>
+                              </tr>
+                            ) : null,
+                          ].filter(Boolean)
+                        })}
                       </tbody>
                     </table>
                   </div>
