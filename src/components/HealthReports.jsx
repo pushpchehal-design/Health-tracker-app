@@ -5,6 +5,20 @@ import './HealthReports.css'
 
 const REPORT_CATEGORIES = ['Heart', 'Liver', 'Kidney', 'Blood', 'Metabolic', 'Electrolytes', 'Thyroid', 'Urine', 'Tumor Markers']
 
+const CATEGORY_DISPLAY_ORDER = ['Heart', 'Blood', 'Kidney', 'Liver', 'Metabolic', 'Electrolytes', 'Thyroid', 'Urine', 'Tumor Markers', 'Other']
+const CATEGORY_ICONS = {
+  Heart: '❤️',
+  Blood: '🩸',
+  Kidney: '🫘',
+  Liver: '🔶',
+  Metabolic: '⚡',
+  Electrolytes: '💧',
+  Thyroid: '🦋',
+  Urine: '🧪',
+  'Tumor Markers': '📋',
+  Other: '•'
+}
+
 function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChange }) {
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
@@ -37,6 +51,7 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
   const [archivedExpandedMembers, setArchivedExpandedMembers] = useState({}) // { memberId: true } for expanded sections
   const [bloodMarkerReference, setBloodMarkerReference] = useState([])
   const [remedyLookup, setRemedyLookup] = useState([])
+  const [analysisCompleteReportId, setAnalysisCompleteReportId] = useState(null) // show "Analysis Complete, Click here" when set
 
   useEffect(() => {
     loadReports()
@@ -506,10 +521,8 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
       setSelectedMember('')
       setShowUpload(false)
       
-      // Reload reports and show this report in Report Analysis tab
       await loadReports()
-      setSelectedReportIdForView(reportRecord.id)
-      setActiveTab('analysis')
+      // Do not show report yet; user will click "Analysis Complete, Click here" when ready
     } catch (err) {
       console.error('Error uploading report:', err)
       console.error('Error details:', JSON.stringify(err, null, 2))
@@ -548,9 +561,8 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
       await performAIAnalysis(fileUrl, filePath, fileType, reportId)
       
       console.log('✅ Analysis completed successfully')
-      // Note: The edge function saves the analysis results directly to the database
-      // We just need to reload the reports to see the updated status
-
+      setAnalysisCompleteReportId(reportId)
+      await loadReports()
     } catch (err) {
       console.error('❌ Error analyzing report:', err)
       console.error('Error name:', err.name)
@@ -574,11 +586,7 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
       alert('Analysis failed: ' + errorMsg + '\n\nCheck browser console (F12) for more details.')
     } finally {
       setAnalyzingReportId(null)
-      console.log('Reloading reports...')
       await loadReports()
-      console.log('Reports reloaded')
-      setSelectedReportIdForView(reportId)
-      setActiveTab('analysis')
     }
   }
 
@@ -658,6 +666,44 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
 
   const allMembers = [{ id: 'user', name: 'Myself' }, ...(familyMembers || [])]
 
+  function getAbnormalSectionsByCategory(report) {
+    const byCat = {}
+    const readings = report.health_parameter_readings || []
+    const analysisList = report.health_analysis || []
+    if (readings.length > 0 && analysisList.length === 0) {
+      readings.forEach((r) => {
+        if (r.status !== 'abnormal') return
+        if (!byCat[r.category]) byCat[r.category] = []
+        byCat[r.category].push({
+          name: r.parameter_name,
+          value: r.parameter_value,
+          normal_range: r.normal_range
+        })
+      })
+    } else {
+      analysisList.forEach((a) => {
+        if (a.category === 'Recommendations') return
+        const parameters = a.findings?.parameters || []
+        parameters.forEach((p) => {
+          if (p.status !== 'abnormal') return
+          const cat = a.category || 'Other'
+          if (!byCat[cat]) byCat[cat] = []
+          byCat[cat].push({
+            name: p.name,
+            value: p.value,
+            normal_range: p.normal_range || ''
+          })
+        })
+      })
+    }
+    const ordered = CATEGORY_DISPLAY_ORDER.filter((c) => byCat[c]?.length)
+    const rest = Object.keys(byCat).filter((c) => !CATEGORY_DISPLAY_ORDER.includes(c))
+    return [...ordered, ...rest].map((category) => ({
+      category,
+      params: byCat[category]
+    }))
+  }
+
   function renderReportCard(report, isArchived = false) {
     return (
       <>
@@ -732,143 +778,59 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
         </div>
       )}
       {report.analysis_status === 'completed' && (() => {
-        const readings = report.health_parameter_readings || []
-        const hasManualReadings = readings.length > 0
-        const analysisList = report.health_analysis || []
-        const hasAnalysis = analysisList.length > 0
-        if (hasManualReadings && !hasAnalysis) {
-          const byCategory = {}
-          readings.forEach((r) => {
-            if (!byCategory[r.category]) byCategory[r.category] = []
-            byCategory[r.category].push(r)
-          })
+        const sections = getAbnormalSectionsByCategory(report)
+        if (sections.length === 0) {
           return (
-            <div className="analysis-results">
-              <h4>Report readings (manual entry)</h4>
-              {Object.entries(byCategory).map(([cat, items]) => (
-                <div key={cat} className="analysis-category">
-                  <h5>{cat}</h5>
-                  <div className="parameters-table-container">
-                    <table className="parameters-table">
+            <div className="analysis-results analysis-results-empty">
+              <p>No abnormal parameters in this report.</p>
+            </div>
+          )
+        }
+        return (
+          <div className="analysis-results analysis-results-by-category">
+            {sections.map(({ category, params }) => {
+              const icon = CATEGORY_ICONS[category] || '•'
+              return (
+                <div key={category} className="report-category-section">
+                  <div className="report-category-header">
+                    <span className="report-category-icon" aria-hidden>{icon}</span>
+                    <h4 className="report-category-title">{category}</h4>
+                  </div>
+                  <div className="report-category-table-wrap">
+                    <table className="report-format-table">
                       <thead>
                         <tr>
-                          <th>Parameter</th>
-                          <th>Your Value</th>
-                          <th>Normal Range</th>
-                          <th>Status</th>
+                          <th>Parameter (below/above normal)</th>
+                          <th>Ayurvedic remedy</th>
+                          <th>Dietary recommendations</th>
+                          <th>Lifestyle modifications</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {items.flatMap((row) => {
-                          const param = { name: row.parameter_name, value: row.parameter_value, normal_range: row.normal_range, status: row.status }
+                        {params.map((p, idx) => {
+                          const param = { name: p.name, value: p.value, normal_range: p.normal_range, status: 'abnormal' }
                           const remedy = getRemedyForParam(param, bloodMarkerReference, remedyLookup)
-                          return [
-                            <tr key={row.id} className={row.status === 'abnormal' ? 'parameter-abnormal' : 'parameter-normal'}>
-                              <td className="parameter-name">{row.parameter_name}</td>
-                              <td className="parameter-value">{row.parameter_value}</td>
-                              <td className="parameter-range">{row.normal_range}</td>
-                              <td className="parameter-status">
-                                <span className={`status-indicator status-${row.status}`}>
-                                  {row.status === 'abnormal' ? '⚠️ Abnormal' : '✅ Normal'}
-                                </span>
+                          return (
+                            <tr key={idx} className="report-format-row">
+                              <td className="report-format-param">
+                                <span className="report-param-name">{p.name}</span>
+                                <span className="report-param-detail">Value: {p.value}</span>
+                                {p.normal_range && <span className="report-param-range">Normal: {p.normal_range}</span>}
                               </td>
-                            </tr>,
-                            remedy ? (
-                              <tr key={`rem-${row.id}`} className="parameter-remedy-row">
-                                <td colSpan={4} className="parameter-remedy-cell">
-                                  <strong>Ayurvedic remedy (from database):</strong> {remedy.remedy_text}
-                                  {remedy.lifestyle_modification ? <><br /><strong>Lifestyle:</strong> {remedy.lifestyle_modification}</> : ''}
-                                  {remedy.dosage_notes ? ` — ${remedy.dosage_notes}` : ''}
-                                </td>
-                              </tr>
-                            ) : null,
-                          ].filter(Boolean)
+                              <td className="report-format-remedy">{remedy ? remedy.remedy_text : '—'}</td>
+                              <td className="report-format-dietary">{remedy?.dietary_recommendations ?? '—'}</td>
+                              <td className="report-format-lifestyle">{remedy?.lifestyle_modification ?? '—'}</td>
+                            </tr>
+                          )
                         })}
                       </tbody>
                     </table>
                   </div>
                 </div>
-              ))}
-            </div>
-          )
-        }
-        if (hasAnalysis) {
-          return (
-            <div className="analysis-results">
-              <h4>AI Analysis Results</h4>
-              {analysisList.map((analysis) => {
-                const parameters = analysis.findings?.parameters || []
-                const hasStructuredData = parameters.length > 0
-                return (
-                  <div key={analysis.id} className="analysis-category">
-                    <div className="category-header">
-                      <h5>{analysis.category === 'Recommendations' ? 'What to do & remedies' : `${analysis.category} Health`}</h5>
-                      {analysis.category !== 'Recommendations' && (
-                        <span className={`risk-badge risk-${analysis.risk_level?.toLowerCase()}`}>
-                          {analysis.risk_level || 'Low'} Risk
-                        </span>
-                      )}
-                    </div>
-                    {analysis.category === 'Recommendations' && (analysis.recommendations || (parameters[0]?.value)) ? (
-                      <div className="recommendations-block">
-                        <pre className="recommendations-text">{analysis.recommendations || parameters[0].value}</pre>
-                      </div>
-                    ) : hasStructuredData ? (
-                      <div className="parameters-table-container">
-                        <table className="parameters-table">
-                          <thead>
-                            <tr>
-                              <th>Parameter</th>
-                              <th>Your Value</th>
-                              <th>Normal Range</th>
-                              <th>Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {parameters.flatMap((param, index) => {
-                              const remedy = getRemedyForParam(param, bloodMarkerReference, remedyLookup)
-                              return [
-                                <tr
-                                  key={index}
-                                  className={param.status === 'abnormal' ? 'parameter-abnormal' : 'parameter-normal'}
-                                >
-                                  <td className="parameter-name">{param.name}</td>
-                                  <td className="parameter-value">{param.value}</td>
-                                  <td className="parameter-range">{param.normal_range}</td>
-                                  <td className="parameter-status">
-                                    <span className={`status-indicator status-${param.status}`}>
-                                      {param.status === 'abnormal' ? '⚠️ Abnormal' : '✅ Normal'}
-                                    </span>
-                                  </td>
-                                </tr>,
-                                remedy ? (
-                                  <tr key={`rem-${index}`} className="parameter-remedy-row">
-                                    <td colSpan={4} className="parameter-remedy-cell">
-                                      <strong>Ayurvedic remedy (from database):</strong> {remedy.remedy_text}
-                                      {remedy.lifestyle_modification ? <><br /><strong>Lifestyle:</strong> {remedy.lifestyle_modification}</> : ''}
-                                      {remedy.dosage_notes ? ` — ${remedy.dosage_notes}` : ''}
-                                    </td>
-                                  </tr>
-                                ) : null,
-                              ].filter(Boolean)
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      analysis.summary && (
-                        <div className="analysis-readings">
-                          <strong>Readings:</strong> {analysis.summary}
-                        </div>
-                      )
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )
-        }
-        return null
+              )
+            })}
+          </div>
+        )
       })()}
       {report.analysis_status === 'failed' && (
         <div className="analysis-error">
@@ -902,6 +864,21 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
     <div className="health-reports">
       <div className="reports-header">
         <h2>Health Reports & Analysis</h2>
+        {analysisCompleteReportId && (
+          <div className="analysis-complete-banner">
+            <button
+              type="button"
+              className="analysis-complete-btn"
+              onClick={() => {
+                setActiveTab('analysis')
+                setSelectedReportIdForView(analysisCompleteReportId)
+                setAnalysisCompleteReportId(null)
+              }}
+            >
+              Analysis complete — Click here to view report
+            </button>
+          </div>
+        )}
         <button
           type="button"
           onClick={() => {
@@ -1034,19 +1011,23 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
             </div>
             {selectedReport && (
                 <div className="reports-list reports-list-single">
-                  <div className="report-analysis-header">
-                    <div className="report-analysis-meta">
-                      <span className="report-analysis-label">Report for</span>
-                      <strong>{getMemberName(selectedReport.family_member_id)}</strong>
+                  <div className="report-analysis-header report-analysis-meta-card">
+                    <div className="report-analysis-meta-row">
+                      <span className="report-analysis-label">Report name</span>
+                      <strong className="report-analysis-value">{selectedReport.report_name || 'Unnamed'}</strong>
                     </div>
-                    <div className="report-analysis-meta">
-                      <span className="report-analysis-label">Report</span>
-                      <strong>{selectedReport.report_name || 'Unnamed'}</strong>
-                      <span className="report-analysis-date">
-                        {selectedReport.report_date
-                          ? new Date(selectedReport.report_date).toLocaleDateString()
-                          : new Date(selectedReport.uploaded_at).toLocaleDateString()}
-                      </span>
+                    <div className="report-analysis-meta-row">
+                      <span className="report-analysis-label">Name</span>
+                      <strong className="report-analysis-value">{getMemberName(selectedReport.family_member_id)}</strong>
+                    </div>
+                    <div className="report-analysis-meta-row">
+                      <span className="report-analysis-label">Generated</span>
+                      <strong className="report-analysis-value">
+                        {new Date(selectedReport.uploaded_at).toLocaleString(undefined, {
+                          dateStyle: 'medium',
+                          timeStyle: 'short'
+                        })}
+                      </strong>
                     </div>
                   </div>
                   <div className="report-card">
