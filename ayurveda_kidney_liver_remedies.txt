@@ -1,0 +1,47 @@
+Kidney ; Serum Creatinine ; High ; Punarnava 500 mg twice daily, Gokshura 500 mg twice daily, Varun 500 mg twice daily ; Hydration 2 to 2.5 liters daily unless fluid restricted, avoid excess protein intake above 0.8 g per kg if kidney compromised, avoid painkiller overuse, reduce salt below 5 grams daily
+
+Kidney ; Serum Creatinine ; Low ; Ashwagandha 3 grams daily, Shatavari 3 grams daily ; Adequate protein intake 1 gram per kg body weight, strength training twice weekly, avoid crash dieting
+
+Kidney ; Urea ; High ; Punarnava 500 mg twice daily, Coriander seed water 200 ml daily ; Reduce high protein load, avoid dehydration, avoid red meat, moderate exercise
+
+Kidney ; Urea ; Low ; Balanced diet with lentils and millets, Amla 20 ml daily ; Avoid malnutrition, maintain regular meals
+
+Kidney ; BUN ; Low ; Adequate protein intake, Amla 20 ml daily ; Avoid restrictive diet, maintain regular meals
+Kidney ; BUN ; High ; Gokshura 500 mg twice daily, Punarnava 500 mg twice daily ; Adequate hydration, avoid protein excess, avoid alcohol
+
+Kidney ; Uric Acid ; High ; Guduchi 500 mg twice daily, Punarnava 500 mg twice daily, Amla 20 ml daily ; Avoid red meat, avoid organ meat, avoid alcohol, avoid high fructose drinks, increase water intake to 3 liters daily
+
+Kidney ; Uric Acid ; Low ; Balanced nutrition, Ashwagandha 3 grams daily ; Maintain healthy protein intake, avoid excessive fasting
+
+Kidney ; eGFR ; Low ; Punarnava 500 mg twice daily, Gokshura 500 mg twice daily ; Strict blood pressure control, avoid NSAID painkillers, controlled protein intake, regular walking 30 minutes daily
+
+Kidney ; Sodium ; High ; Coriander water 200 ml daily, Punarnava 500 mg twice daily ; Reduce salt intake, avoid packaged snacks, hydrate adequately
+
+Kidney ; Potassium ; High ; Coriander water 200 ml daily ; Avoid banana, coconut water, potato excess, medical monitoring required
+
+Kidney ; Potassium ; Low ; Coconut water 200 ml daily, Shatavari 3 grams daily ; Include banana, spinach, adequate hydration
+
+Kidney ; Urine Albumin ; Positive ; Gokshura 500 mg twice daily, Punarnava 500 mg twice daily ; Blood sugar control if diabetic, reduce salt, avoid heavy protein diet
+
+Kidney ; Urine Protein ; Positive ; Varun 500 mg twice daily, Punarnava 500 mg twice daily ; Monitor blood pressure, avoid dehydration, regular medical follow up
+
+Liver ; ALT ; High ; Bhumyamalaki 500 mg twice daily, Kalmegh 500 mg twice daily, Guduchi 500 mg twice daily ; Avoid alcohol completely, avoid fried food, avoid excess oil, weight reduction if overweight, brisk walking 30 minutes daily
+
+Liver ; AST ; High ; Bhumyamalaki 500 mg twice daily, Amla 20 ml daily ; Avoid alcohol, avoid painkiller overuse, light diet including moong dal and vegetables
+
+Liver ; ALP ; High ; Kalmegh 500 mg twice daily, Kutki 250 mg twice daily ; Avoid fatty food, maintain healthy weight, ensure vitamin D adequacy through sunlight 20 minutes daily
+
+Liver ; Total Bilirubin ; High ; Bhumyamalaki 500 mg twice daily, Guduchi 500 mg twice daily ; Complete rest, light diet, avoid oily food, no alcohol
+
+Liver ; Direct Bilirubin ; High ; Kalmegh 500 mg twice daily, Bhumyamalaki 500 mg twice daily ; Hydration 2.5 liters daily, avoid spicy food
+
+Liver ; Indirect Bilirubin ; High ; Amla 20 ml daily, Guduchi 500 mg twice daily ; Adequate rest, avoid fasting
+
+Liver ; Total Protein ; Low ; Ashwagandha 3 grams daily, Shatavari 3 grams daily ; Protein intake 1 gram per kg body weight, include lentils and milk if tolerated
+
+Liver ; Albumin ; Low ; Ashwagandha 3 grams daily, Cow milk 200 ml daily ; Adequate nutrition, avoid chronic alcohol, manage chronic illness
+
+Liver ; Globulin ; Low ; Ashwagandha 3 grams daily, adequate protein 1 g per kg, include lentils and dairy if tolerated ; Balanced nutrition, avoid restrictive diet
+Liver ; Globulin ; High ; Guduchi 500 mg twice daily, Turmeric 1/2 teaspoon daily ; Anti inflammatory diet, avoid refined sugar and fried food
+
+Liver ; GGT ; High ; Kalmegh 500 mg twice daily, Bhumyamalaki 500 mg twice daily ; Strict alcohol avoidance, avoid packaged food, weight reduction if overweight

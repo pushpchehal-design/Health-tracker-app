@@ -30,6 +30,32 @@
   gap: 0.75rem;
 }
 
+.family-health-test-data-options {
+  margin-bottom: 0.5rem;
+}
+
+.family-health-test-data-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #ccc;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.family-health-test-data-option input {
+  margin: 0;
+}
+
+.family-health-test-data-member-select {
+  padding: 0.4rem 0.6rem;
+  background: #242424;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 0.9rem;
+}
+
 .family-health-test-data-date {
   padding: 0.5rem 0.75rem;
   background: #0d0d0d;

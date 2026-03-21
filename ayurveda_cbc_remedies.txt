@@ -1,0 +1,54 @@
+Blood ; Hemoglobin (HB) ; Low ; Punarnava Mandur 250 mg twice daily after meals, Draksharishta 15 ml with equal water twice daily, 10 soaked black raisins daily, 1 tablespoon sesame jaggery mix daily ; Sleep before 10:30 pm, 20 minutes sunlight exposure, avoid tea or coffee 1 hour before and after meals, include spinach 3 times weekly, beetroot 3 times weekly
+
+Blood ; Hemoglobin (HB) ; High ; Amla juice 20 ml morning empty stomach, Guduchi powder 500 mg twice daily, Coriander seed water prepared from 1 teaspoon seeds boiled in 200 ml water ; Drink 2.5 to 3 liters water daily, avoid red meat, avoid alcohol, avoid spicy fried food, practice Sheetali pranayama 5 minutes twice daily
+
+Blood ; RBC ; Low ; Ashwagandha powder 3 grams at bedtime with warm milk, Shatavari 3 grams morning, 2 dates soaked overnight daily ; Strength training twice weekly, protein intake 1 gram per kg body weight, manage stress through meditation 10 minutes daily
+
+Blood ; RBC ; High ; Amla 20 ml daily, Aloe vera pulp 20 ml morning, Guduchi 500 mg twice daily ; Avoid dehydration, reduce red meat to once weekly, avoid smoking
+
+Blood ; PCV ; Low ; Lohasava 15 ml with equal water twice daily, Sesame seeds 1 tablespoon daily ; Avoid fasting, eat meals at fixed times, avoid processed food
+
+Blood ; PCV ; High ; Coriander water 200 ml daily, Guduchi 500 mg twice daily ; Maintain hydration, reduce salt intake below 5 grams daily, brisk walking 30 minutes daily
+
+Blood ; MCV ; Low ; Mandur 250 mg twice daily supervised, Black sesame 1 tablespoon daily, Triphala 3 grams at night ; Improve digestion, eat warm freshly cooked meals, avoid packaged foods
+
+Blood ; MCV ; High ; Panchakola churna 1 gram before meals twice daily, Cow ghee 1 teaspoon daily ; Maintain regular meals, include dairy if tolerated, avoid excessive fasting
+
+Blood ; MCH ; Low ; Punarnava Mandur 250 mg twice daily, Pomegranate juice 100 ml daily ; Balanced diet, avoid skipping meals
+
+Blood ; MCH ; High ; Amla 20 ml daily, Guduchi 500 mg twice daily ; Avoid fried food, reduce exposure to heat, avoid excessive chilies
+
+Blood ; MCHC ; Low ; Ashwagandha 3 grams at bedtime, Sesame 1 tablespoon daily ; 7 to 8 hours sleep, resistance exercise twice weekly
+
+Blood ; MCHC ; High ; Neem powder 500 mg twice daily for 2 weeks, Coriander water 200 ml daily ; Avoid spicy food, reduce fermented foods like excess curd and pickles
+
+Blood ; RDW ; Low ; Triphala 3 grams at bedtime, balanced diet with iron and B12 ; Regular meals, avoid deficiency triggers
+Blood ; RDW ; High ; Trikatu 500 mg before lunch daily for 2 weeks, Triphala 3 grams at bedtime ; Fix meal timing, avoid overeating, avoid junk food
+
+Blood ; Total WBC ; Low ; Chyawanprash 1 tablespoon morning, Guduchi 500 mg twice daily, Tulsi 5 fresh leaves daily ; Sleep 7 to 8 hours, sunlight exposure daily, moderate exercise 30 minutes
+
+Blood ; Total WBC ; High ; Neem 500 mg twice daily for 2 weeks, Turmeric milk prepared with 1/2 teaspoon turmeric at night ; Light diet like moong dal khichdi, avoid fried food, avoid sugar, avoid packaged snacks
+
+Blood ; Neutrophils ; Low ; Ashwagandha 3 grams daily, Cow ghee 1 teaspoon daily ; Protein adequate diet, regular moderate exercise
+
+Blood ; Neutrophils ; High ; Guduchi 500 mg twice daily, Turmeric 1/2 teaspoon daily ; Rest during infection, avoid inflammatory diet
+
+Blood ; Lymphocytes ; Low ; Brahmi 500 mg twice daily, Ashwagandha 3 grams daily ; Meditation 10 minutes daily, reduce work stress
+
+Blood ; Lymphocytes ; High ; Tulsi decoction from 7 leaves daily, Guduchi 500 mg twice daily ; Avoid cold drinks, maintain hygiene
+
+Blood ; Monocytes ; Low ; Amla 20 ml daily, Chyawanprash 1 tablespoon daily ; Adequate sleep, balanced routine
+
+Blood ; Monocytes ; High ; Manjistha 500 mg twice daily, Turmeric 1/2 teaspoon daily ; Avoid sugar, avoid deep fried food
+
+Blood ; Eosinophils ; High ; Haridra khanda 3 grams daily for 2 weeks, Neem 500 mg twice daily ; Avoid dairy if allergic, avoid dust exposure, no cold drinks
+
+Blood ; Platelet Count ; Low ; Papaya leaf juice 10 ml twice daily for 5 days supervised, Wheatgrass juice 30 ml daily, Giloy 500 mg twice daily ; Avoid injury risk, rest adequately, hydrate 3 liters daily
+
+Blood ; Platelet Count ; High ; Manjistha 500 mg twice daily, Guduchi 500 mg twice daily ; Daily walking 30 minutes, avoid smoking, avoid processed meat
+
+Blood ; MPV ; Low ; Ashwagandha 3 grams daily, Sesame 1 tablespoon daily ; Adequate protein intake, strength training twice weekly
+
+Blood ; MPV ; High ; Amla 20 ml daily, Guduchi 500 mg twice daily ; Anti inflammatory diet, stress reduction practices
+
+Blood ; ESR ; High ; Manjistha 500 mg twice daily, Turmeric 1/2 teaspoon in warm milk nightly ; Anti inflammatory diet including vegetables, whole grains, omega 3 sources, avoid refined sugar, avoid deep fried food, avoid processed meat, avoid excess refined flour, avoid carbonated drinks

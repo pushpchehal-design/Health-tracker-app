@@ -1,0 +1,33 @@
+Heart ; Total Cholesterol ; High ; Arjuna powder 3 grams twice daily with warm water, Garlic 1 clove raw morning, Guggulu 500 mg twice daily after meals ; 30 to 45 minutes brisk walking daily, avoid fried food, avoid processed meat, reduce refined sugar, maintain body weight in healthy range
+
+Heart ; Total Cholesterol ; Low ; Amla 20 ml daily, Cow ghee 1 teaspoon daily, Ashwagandha 3 grams at bedtime ; Balanced fat intake including nuts and seeds, avoid crash dieting, strength training twice weekly
+
+Heart ; LDL Cholesterol ; High ; Guggulu 500 mg twice daily, Arjuna 3 grams twice daily, Garlic 1 clove daily ; Avoid red meat more than once weekly, avoid deep fried food, eliminate trans fats, increase fiber from vegetables and oats
+
+Heart ; LDL Cholesterol ; Low ; Amla 20 ml daily, Soaked almonds 5 daily ; Balanced diet including healthy fats like sesame oil, moderate exercise
+
+Heart ; HDL Cholesterol ; Low ; Arjuna 3 grams daily, Flaxseed powder 1 tablespoon daily, Amla 20 ml daily ; 30 minutes aerobic exercise 5 days weekly, stop smoking, include nuts and seeds daily
+
+Heart ; HDL Cholesterol ; High ; Usually protective, maintain Amla 20 ml daily ; Continue exercise routine, avoid extreme dieting
+
+Heart ; VLDL ; High ; Guggulu 500 mg twice daily, Garlic 1 clove daily ; Reduce sugar intake below 25 grams daily, avoid refined carbohydrates like white bread and sweets
+
+Heart ; Triglycerides ; High ; Guggulu 500 mg twice daily, Garlic 1 clove daily, Triphala 3 grams at bedtime ; Avoid sweets, avoid sugary beverages, reduce rice portion, 45 minutes walking daily
+
+Heart ; Triglycerides ; Low ; Balanced diet, Amla 20 ml daily ; Avoid excessive fasting, maintain steady nutrition
+
+Heart ; Non HDL Cholesterol ; High ; Arjuna 3 grams twice daily, Guggulu 500 mg twice daily ; Weight reduction if overweight, avoid processed food, high fiber diet
+
+Heart ; Cholesterol HDL Ratio ; High Risk ; Arjuna 3 grams twice daily, Amla 20 ml daily ; Daily exercise, avoid alcohol, maintain waist circumference within healthy limits
+
+Heart ; Apolipoprotein A1 ; Low ; Amla 20 ml daily, Flaxseed 1 tablespoon daily ; Regular aerobic exercise, include omega 3 sources like walnuts
+
+Heart ; Apolipoprotein B ; High ; Guggulu 500 mg twice daily, Garlic 1 clove daily ; Reduce saturated fats, avoid bakery products, increase vegetable intake to 400 grams daily
+
+Heart ; Lipoprotein a ; High ; Arjuna 3 grams twice daily, Amla 20 ml daily, Guduchi 500 mg twice daily ; Strict weight management, avoid smoking, stress reduction 15 minutes meditation daily
+
+Heart ; hs CRP ; High ; Manjistha 500 mg twice daily, Turmeric 1/2 teaspoon daily with black pepper pinch ; Anti inflammatory diet, avoid refined sugar, avoid fried food, ensure 7 to 8 hours sleep
+
+Heart ; Homocysteine ; High ; Triphala 3 grams nightly, Amla 20 ml daily ; Include leafy greens 4 times weekly, adequate B12 sources, avoid smoking
+
+Heart ; Blood Pressure related sodium retention tendency ; High ; Punarnava 500 mg twice daily, Coriander seed water 200 ml daily ; Reduce salt below 5 grams daily, avoid packaged snacks, daily walking 30 minutes

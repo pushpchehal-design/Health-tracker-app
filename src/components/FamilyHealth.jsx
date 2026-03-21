@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { formatDateDMY } from '../utils/dateFormat'
 import { supabase } from '../lib/supabase'
 import {
   LineChart,
@@ -14,6 +15,56 @@ import {
 import './FamilyHealth.css'
 
 const CATEGORY_ORDER = ['Heart', 'Liver', 'Kidney', 'Blood', 'Metabolic', 'Thyroid', 'Electrolytes', 'Urine', 'Tumor Markers']
+
+// Complete test markers for remedy validation. Optional: direction ('low'|'high'|'both'),
+// maxAbnormalHigh / minAbnormalLow = plausible caps so values are never impossible (e.g. Hemoglobin never 100).
+const TEST_MARKERS_REMEDY = [
+  { name: 'Hemoglobin', unit: 'g/dL', normal_low: 12, normal_high: 17, category: 'Blood', direction: 'both', minAbnormalLow: 5, maxAbnormalHigh: 22 },
+  { name: 'RBC', unit: 'million/mcL', normal_low: 4.2, normal_high: 5.9, category: 'Blood', direction: 'both', minAbnormalLow: 2.5, maxAbnormalHigh: 6.5 },
+  { name: 'Hematocrit', unit: '%', normal_low: 36, normal_high: 50, category: 'Blood', direction: 'both', minAbnormalLow: 22, maxAbnormalHigh: 58 },
+  { name: 'MCV', unit: 'fL', normal_low: 80, normal_high: 100, category: 'Blood', direction: 'both', minAbnormalLow: 65, maxAbnormalHigh: 115 },
+  { name: 'MCH', unit: 'pg', normal_low: 27, normal_high: 33, category: 'Blood', direction: 'both', minAbnormalLow: 20, maxAbnormalHigh: 38 },
+  { name: 'MCHC', unit: 'g/dL', normal_low: 32, normal_high: 36, category: 'Blood', direction: 'both', minAbnormalLow: 28, maxAbnormalHigh: 40 },
+  { name: 'RDW', unit: '%', normal_low: 11.5, normal_high: 14.5, category: 'Blood', direction: 'both', minAbnormalLow: 10, maxAbnormalHigh: 22 },
+  { name: 'WBC', unit: 'cells/mcL', normal_low: 4500, normal_high: 11000, category: 'Blood', direction: 'both', minAbnormalLow: 1500, maxAbnormalHigh: 25000 },
+  { name: 'Neutrophils', unit: '%', normal_low: 40, normal_high: 80, category: 'Blood', direction: 'both', minAbnormalLow: 15, maxAbnormalHigh: 90 },
+  { name: 'Lymphocytes', unit: '%', normal_low: 20, normal_high: 40, category: 'Blood', direction: 'both', minAbnormalLow: 5, maxAbnormalHigh: 60 },
+  { name: 'Monocytes', unit: '%', normal_low: 2, normal_high: 10, category: 'Blood', direction: 'both', minAbnormalLow: 1, maxAbnormalHigh: 15 },
+  { name: 'Eosinophils', unit: '%', normal_low: 1, normal_high: 6, category: 'Blood', direction: 'both', minAbnormalLow: 0, maxAbnormalHigh: 15 },
+  { name: 'Platelet Count', unit: 'cells/mcL', normal_low: 150000, normal_high: 400000, category: 'Blood', direction: 'both', minAbnormalLow: 50000, maxAbnormalHigh: 600000 },
+  { name: 'MPV', unit: 'fL', normal_low: 9, normal_high: 13, category: 'Blood', direction: 'both', minAbnormalLow: 6, maxAbnormalHigh: 15 },
+  { name: 'ESR', unit: 'mm/hr', normal_low: 0, normal_high: 10, category: 'Blood', direction: 'high', maxAbnormalHigh: 80 },
+  { name: 'Total Cholesterol', unit: 'mg/dL', normal_low: 100, normal_high: 200, category: 'Heart', direction: 'both', minAbnormalLow: 80, maxAbnormalHigh: 350 },
+  { name: 'LDL Cholesterol', unit: 'mg/dL', normal_low: 0, normal_high: 100, category: 'Heart', direction: 'high', maxAbnormalHigh: 250 },
+  { name: 'HDL Cholesterol', unit: 'mg/dL', normal_low: 40, normal_high: 60, category: 'Heart', direction: 'low', minAbnormalLow: 20 },
+  { name: 'VLDL Cholesterol', unit: 'mg/dL', normal_low: 0, normal_high: 30, category: 'Heart', direction: 'high', maxAbnormalHigh: 60 },
+  { name: 'Triglycerides', unit: 'mg/dL', normal_low: 0, normal_high: 150, category: 'Heart', direction: 'high', maxAbnormalHigh: 450 },
+  { name: 'Non HDL Cholesterol', unit: 'mg/dL', normal_low: 0, normal_high: 130, category: 'Heart', direction: 'high', maxAbnormalHigh: 220 },
+  { name: 'Total Cholesterol/HDL Ratio', unit: 'ratio', normal_low: 0, normal_high: 5, category: 'Heart', direction: 'both', minAbnormalLow: 0, maxAbnormalHigh: 8 },
+  { name: 'Apolipoprotein A1', unit: 'mg/dL', normal_low: 70, normal_high: 120, category: 'Heart', direction: 'both', minAbnormalLow: 50, maxAbnormalHigh: 160 },
+  { name: 'Apolipoprotein B', unit: 'mg/dL', normal_low: 50, normal_high: 90, category: 'Heart', direction: 'high', maxAbnormalHigh: 180 },
+  { name: 'Lipoprotein(a)', unit: 'mg/dL', normal_low: 0, normal_high: 30, category: 'Heart', direction: 'high', maxAbnormalHigh: 120 },
+  { name: 'CRP', unit: 'mg/L', normal_low: 0, normal_high: 3, category: 'Heart', direction: 'high', maxAbnormalHigh: 100 },
+  { name: 'Homocysteine', unit: 'µmol/L', normal_low: 5, normal_high: 15, category: 'Heart', direction: 'high', maxAbnormalHigh: 50 },
+  { name: 'Creatinine', unit: 'mg/dL', normal_low: 0.7, normal_high: 1.3, category: 'Kidney', direction: 'both', minAbnormalLow: 0.4, maxAbnormalHigh: 4 },
+  { name: 'Urea', unit: 'mg/dL', normal_low: 15, normal_high: 48, category: 'Kidney', direction: 'both', minAbnormalLow: 5, maxAbnormalHigh: 120 },
+  { name: 'BUN', unit: 'mg/dL', normal_low: 7, normal_high: 20, category: 'Kidney', direction: 'both', minAbnormalLow: 2, maxAbnormalHigh: 55 },
+  { name: 'Uric Acid', unit: 'mg/dL', normal_low: 3.5, normal_high: 7.2, category: 'Kidney', direction: 'both', minAbnormalLow: 2, maxAbnormalHigh: 12 },
+  { name: 'eGFR', unit: 'mL/min/1.73m2', normal_low: 90, normal_high: 120, category: 'Kidney', direction: 'low', minAbnormalLow: 18 },
+  { name: 'Sodium', unit: 'mEq/L', normal_low: 136, normal_high: 145, category: 'Kidney', direction: 'both', minAbnormalLow: 125, maxAbnormalHigh: 155 },
+  { name: 'Potassium', unit: 'mEq/L', normal_low: 3.5, normal_high: 5.0, category: 'Kidney', direction: 'both', minAbnormalLow: 2.5, maxAbnormalHigh: 6.2 },
+  { name: 'Urine Protein', unit: 'mg/dL', normal_low: 0, normal_high: 20, category: 'Kidney', direction: 'high', maxAbnormalHigh: 400 },
+  { name: 'ALT', unit: 'U/L', normal_low: 7, normal_high: 56, category: 'Liver', direction: 'high', maxAbnormalHigh: 400 },
+  { name: 'AST', unit: 'U/L', normal_low: 10, normal_high: 40, category: 'Liver', direction: 'high', maxAbnormalHigh: 400 },
+  { name: 'Alkaline Phosphatase', unit: 'U/L', normal_low: 44, normal_high: 147, category: 'Liver', direction: 'high', maxAbnormalHigh: 500 },
+  { name: 'Bilirubin (Total)', unit: 'mg/dL', normal_low: 0.1, normal_high: 1.2, category: 'Liver', direction: 'high', maxAbnormalHigh: 8 },
+  { name: 'Bilirubin (Direct)', unit: 'mg/dL', normal_low: 0, normal_high: 0.3, category: 'Liver', direction: 'high', maxAbnormalHigh: 5 },
+  { name: 'Bilirubin (Indirect)', unit: 'mg/dL', normal_low: 0.2, normal_high: 1.0, category: 'Liver', direction: 'high', maxAbnormalHigh: 6 },
+  { name: 'Total Protein', unit: 'g/dL', normal_low: 6.4, normal_high: 8.3, category: 'Liver', direction: 'both', minAbnormalLow: 5, maxAbnormalHigh: 10 },
+  { name: 'Albumin', unit: 'g/dL', normal_low: 3.4, normal_high: 5.4, category: 'Liver', direction: 'both', minAbnormalLow: 2, maxAbnormalHigh: 6 },
+  { name: 'Globulin', unit: 'g/dL', normal_low: 1.9, normal_high: 3.9, category: 'Liver', direction: 'both', minAbnormalLow: 1.2, maxAbnormalHigh: 5 },
+  { name: 'GGT', unit: 'U/L', normal_low: 9, normal_high: 48, category: 'Liver', direction: 'high', maxAbnormalHigh: 350 }
+]
 
 function roundDomainBound(v, roundUp) {
   if (v === 0) return 0
@@ -33,7 +84,7 @@ function roundDomainBound(v, roundUp) {
 function formatTick(value) {
   if (value == null || Number.isNaN(value)) return ''
   const n = Number(value)
-  if (Math.abs(n) >= 100 || (Math.abs(n) < 0.01 && n !== 0)) return n.toExponential(2)
+  if (Math.abs(n) >= 10000 || (Math.abs(n) < 0.001 && n !== 0)) return n.toExponential(2)
   const rounded = Math.round(n * 100) / 100
   if (Math.abs(rounded - Math.round(rounded)) < 1e-9) return String(Math.round(rounded))
   return rounded.toFixed(2).replace(/\.?0+$/, '')
@@ -43,10 +94,21 @@ function randomInRange(low, high) {
   return low + Math.random() * (high - low)
 }
 
-function randomOutOfRange(low, high) {
+/** Generate an abnormal value respecting direction (low/high/both) and plausible bounds. */
+function randomAbnormalValue(marker, low, high) {
+  const dir = marker.direction || 'both'
   const range = high - low
-  const margin = Math.max(range * 0.15, 0.01)
-  return Math.random() < 0.5 ? low - margin * (0.5 + Math.random()) : high + margin * (0.5 + Math.random())
+  const defaultMargin = Math.max(range * 0.25, 0.01)
+  const maxH = marker.maxAbnormalHigh != null ? marker.maxAbnormalHigh : high + defaultMargin
+  const minL = marker.minAbnormalLow != null ? marker.minAbnormalLow : low - defaultMargin
+  let goHigh = dir === 'high' || (dir === 'both' && Math.random() < 0.5)
+  if (dir === 'low') goHigh = false
+  if (dir === 'high') goHigh = true
+  const raw = goHigh
+    ? high + Math.random() * (maxH - high)
+    : minL + Math.random() * (low - minL)
+  if (low >= 0 && raw < 0) return 0
+  return raw
 }
 
 function roundValue(val, low, high) {
@@ -67,6 +129,8 @@ function FamilyHealth({ userId, userProfile, familyMembers }) {
   const [selectedCategory, setSelectedCategory] = useState('')
   const [parameterCharts, setParameterCharts] = useState([])
   const [testDataDate, setTestDataDate] = useState('')
+  const [testDataForAll, setTestDataForAll] = useState(true)
+  const [testDataMemberId, setTestDataMemberId] = useState('user')
   const [generatingTestData, setGeneratingTestData] = useState(false)
   const [testDataMessage, setTestDataMessage] = useState({ type: '', text: '' })
   const [outputType, setOutputType] = useState('graph')
@@ -138,7 +202,7 @@ function FamilyHealth({ userId, userProfile, familyMembers }) {
       const reportSortKeyById = {}
       reports.forEach((r, idx) => {
         const d = r.report_date || r.uploaded_at
-        reportDateById[r.id] = d ? new Date(d).toLocaleDateString() : ''
+        reportDateById[r.id] = d ? formatDateDMY(d) : ''
         reportSortKeyById[r.id] = d ? new Date(d).getTime() : idx
       })
 
@@ -229,7 +293,7 @@ function FamilyHealth({ userId, userProfile, familyMembers }) {
       const reportMemberById = {}
       reports.forEach((r) => {
         const d = r.report_date || r.uploaded_at
-        reportDateById[r.id] = d ? new Date(d).toLocaleDateString() : ''
+        reportDateById[r.id] = d ? formatDateDMY(d) : ''
         reportMemberById[r.id] = r.family_member_id == null ? 'user' : r.family_member_id
       })
 
@@ -313,16 +377,12 @@ function FamilyHealth({ userId, userProfile, familyMembers }) {
     setGeneratingTestData(true)
     setTestDataMessage({ type: '', text: '' })
     try {
-      const { data: markers, error: markersErr } = await supabase
-        .from('blood_marker_reference')
-        .select('name, unit, normal_low, normal_high, category')
-      if (markersErr) throw markersErr
-      if (!markers?.length) throw new Error('No reference markers found.')
+      // Use full test marker set (Blood, Heart, Kidney, Liver) for remedy validation
+      const markers = TEST_MARKERS_REMEDY
 
-      const members = [
-        { familyMemberId: null },
-        ...(familyMembers || []).map((m) => ({ familyMemberId: m.id }))
-      ]
+      const members = testDataForAll
+        ? [{ familyMemberId: null }, ...(familyMembers || []).map((m) => ({ familyMemberId: m.id }))]
+        : [{ familyMemberId: testDataMemberId === 'user' ? null : testDataMemberId }]
       const recordedAt = `${testDataDate}T12:00:00.000Z`
 
       for (const { familyMemberId } of members) {
@@ -336,7 +396,7 @@ function FamilyHealth({ userId, userProfile, familyMembers }) {
             file_url: null,
             file_type: 'test',
             report_date: testDataDate,
-            analysis_status: 'completed'
+            analysis_status: 'processing'
           })
           .select('id')
           .single()
@@ -347,8 +407,8 @@ function FamilyHealth({ userId, userProfile, familyMembers }) {
           const low = Number(m.normal_low)
           const high = Number(m.normal_high)
           if (Number.isNaN(low) || Number.isNaN(high) || high <= low) continue
-          const outOfRange = Math.random() < 0.28
-          const raw = outOfRange ? randomOutOfRange(low, high) : randomInRange(low, high)
+          const outOfRange = Math.random() < 0.45
+          const raw = outOfRange ? randomAbnormalValue(m, low, high) : randomInRange(low, high)
           const value = roundValue(raw, low, high)
           const status = value >= low && value <= high ? 'normal' : 'abnormal'
           rows.push({
@@ -369,7 +429,8 @@ function FamilyHealth({ userId, userProfile, familyMembers }) {
         if (readingsErr) throw readingsErr
       }
 
-      setTestDataMessage({ type: 'success', text: `Test data generated for ${testDataDate} for all ${members.length} member(s). Select a category to view.` })
+      const who = testDataForAll ? `all ${members.length} member(s)` : memberKeyToName[testDataMemberId] || 'selected member'
+      setTestDataMessage({ type: 'success', text: `Test data generated for ${testDataDate} for ${who}. Select a category or view in Health Reports.` })
       setTestDataDate('')
       if (selectedCategory) loadMemberCategoryData()
       if (selectedCategoryFamily) loadAllMembersCategoryData()
@@ -385,7 +446,41 @@ function FamilyHealth({ userId, userProfile, familyMembers }) {
     <div className="family-health">
       <div className="family-health-test-data">
         <h3 className="family-health-test-data-title">Generate test data (testing only)</h3>
-        <p className="family-health-test-data-hint">Pick a date and generate random parameter values (within and some outside normal limits) for yourself and all family members.</p>
+        <p className="family-health-test-data-hint">Pick a date and generate sample values for Blood (CBC), Heart (lipids), Kidney, and Liver parameters. ~45% abnormal to test remedy display.</p>
+        <div className="family-health-test-data-row family-health-test-data-options">
+          <label className="family-health-test-data-option">
+            <input
+              type="radio"
+              name="testDataScope"
+              checked={testDataForAll}
+              onChange={() => setTestDataForAll(true)}
+            />
+            <span>All members</span>
+          </label>
+          <label className="family-health-test-data-option">
+            <input
+              type="radio"
+              name="testDataScope"
+              checked={!testDataForAll}
+              onChange={() => setTestDataForAll(false)}
+            />
+            <span>Selected member</span>
+          </label>
+          {!testDataForAll && (
+            <select
+              value={testDataMemberId}
+              onChange={(e) => setTestDataMemberId(e.target.value)}
+              className="family-health-test-data-member-select"
+              aria-label="Select family member"
+            >
+              {membersList.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
         <div className="family-health-test-data-row">
           <input
             type="date"
@@ -400,7 +495,7 @@ function FamilyHealth({ userId, userProfile, familyMembers }) {
             disabled={generatingTestData || !testDataDate}
             className="family-health-test-data-btn"
           >
-            {generatingTestData ? 'Generating…' : 'Generate for all members'}
+            {generatingTestData ? 'Generating…' : testDataForAll ? 'Generate for all members' : `Generate for ${memberKeyToName[testDataMemberId] || 'selected'}`}
           </button>
         </div>
         {testDataMessage.text && (

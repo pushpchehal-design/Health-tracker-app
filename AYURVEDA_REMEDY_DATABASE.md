@@ -7,7 +7,7 @@ Store Ayurvedic remedies for **blood report parameters** (e.g. low hemoglobin, l
 ## Where it is stored
 
 - **Supabase table:** `public.ayurveda_remedy_lookup`
-- **Columns:** `marker_name`, `condition` (low | high), `remedy_text`, optional `dosage_notes`, `precautions`, `source`
+- **Columns:** `marker_name`, `condition` (low | high), `remedy_text`, `lifestyle_modification`, optional `dosage_notes`, `precautions`, `source`
 - **One row per (marker, condition):** e.g. Hemoglobin + low, Hemoglobin + high, WBC + low, WBC + high, etc.
 
 Run **`supabase-ayurveda-remedy-lookup.sql`** in the Supabase SQL Editor once to create the table. Then load your data (see format below).
@@ -18,41 +18,45 @@ Run **`supabase-ayurveda-remedy-lookup.sql`** in the Supabase SQL Editor once to
 
 Use **one** of these. Both are easy to parse and load into the table.
 
-### Option 1: CSV (recommended)
+### Option 1: Semicolon-delimited (no header, simple)
 
-**Header row (exact):**
+One row per line: `category ; marker_name ; condition ; remedy_text ; lifestyle_modification`
 
-```text
-marker_name,condition,remedy_text,dosage_notes,precautions,source
-```
+**Example:** `Blood ; Hemoglobin (HB) ; Low ; Punarnava Mandur 250 mg twice daily... ; Sleep before 10:30 pm, include spinach 3× weekly`
+
+Save as `ayurveda_remedies.txt`. Load: `node scripts/load-ayurveda-remedies.js ayurveda_remedies.txt`  
+Report-style names like `Hemoglobin (HB)` are auto-mapped to canonical `Hemoglobin`.
+
+### Option 2: CSV (comma-separated, with header)
+
+**Header row:** `category,marker_name,condition,remedy_text,lifestyle_modification,dosage_notes,precautions,source`
 
 **Rules:**
 
-- **marker_name** — Use the **exact canonical name** from the list below (e.g. `Hemoglobin`, `WBC`, `Creatinine`). The app matches report parameters to these names (and their aliases) so spelling must match.
+- **marker_name** — Canonical (e.g. `Hemoglobin`) or report-style (`Hemoglobin (HB)`); loader maps via `blood_marker_reference`.
 - **condition** — Only `low` or `high`.
 - **remedy_text** — Full text shown to the user (no length limit; keep concise for readability).
-- **dosage_notes**, **precautions**, **source** — Optional; can be empty.
+- **lifestyle_modification** — Optional; shown as "Lifestyle:" in the app.
+- **dosage_notes**, **precautions**, **source** — Optional.
 
 **Example rows:**
 
 ```csv
-marker_name,condition,remedy_text,dosage_notes,precautions,source
-Hemoglobin,low,"Pomegranate, dates, beetroot, spinach; iron-rich diet. Punarnava and Lauha bhasma under guidance.","Take with vitamin C for absorption.",Consult practitioner if on other meds,Classical texts
-WBC,low,"Giloy, Ashwagandha; immune-supporting diet. Lauha and Chyawanprash under guidance.",,, 
-WBC,high,"Cooling diet; avoid excess pungent. Neem, Guduchi under guidance.",,,
-Creatinine,high,"Reduce protein load; avoid excess salt. Gokshura, Punarnava under guidance.",,Kidney cases: medical supervision,
+category,marker_name,condition,remedy_text,lifestyle_modification,dosage_notes,precautions,source
+Blood,Hemoglobin,low,"Pomegranate, dates, beetroot; Punarnava and Lauha bhasma under guidance.","Take with vitamin C. Sleep before 10:30 pm.",,Consult practitioner,Classical texts
+Blood,WBC,low,"Giloy, Ashwagandha; Lauha and Chyawanprash under guidance.",Include immune-supporting foods,,
+Blood,WBC,high,"Cooling diet; Neem, Guduchi under guidance.",Avoid excess pungent,,
 ```
 
 Save as e.g. `ayurveda_remedies.csv`. We can load it via a small script or SQL (see “How to load” below).
 
-### Option 2: JSON
+### Option 3: JSON
 
-Same logic; array of objects:
+Same logic; array of objects (include `lifestyle_modification` when available):
 
 ```json
 [
-  { "marker_name": "Hemoglobin", "condition": "low", "remedy_text": "Pomegranate, dates...", "dosage_notes": "", "precautions": "", "source": "" },
-  { "marker_name": "WBC", "condition": "low", "remedy_text": "Giloy, Ashwagandha...", "dosage_notes": "", "precautions": "", "source": "" }
+  { "marker_name": "Hemoglobin", "condition": "low", "remedy_text": "Pomegranate, dates...", "lifestyle_modification": "Sleep before 10:30 pm", "dosage_notes": "", "precautions": "", "source": "" }
 ]
 ```
 
@@ -94,7 +98,7 @@ Use **exactly** these strings in your CSV/JSON so the app can match report param
 2. For each **abnormal** parameter it derives **low** or **high** from value vs reference range.
 3. It resolves the report **name** (e.g. "Hb") to the **canonical** `marker_name` (e.g. "Hemoglobin") using `blood_marker_reference`.
 4. It looks up `ayurveda_remedy_lookup` for `(marker_name, condition)`.
-5. If a row exists, it shows **remedy_text** (and optionally dosage_notes, precautions) to the user — **no AI call**.
+5. If a row exists, it shows **remedy_text**, **lifestyle_modification** (as "Lifestyle:"), and optionally dosage_notes, precautions to the user — **no AI call**.
 
 So: **your content is shown as-is; accuracy is exactly what you put in the table.**
 

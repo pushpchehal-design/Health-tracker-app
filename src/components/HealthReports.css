@@ -455,14 +455,57 @@
   cursor: not-allowed;
 }
 
+.analyzing-global-banner {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border: 1px solid #646cff;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  color: #fff;
+  text-align: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem 1rem;
+}
+
+.analyzing-global-banner .analyzing-message {
+  margin: 0;
+  font-size: 1rem;
+}
+
 .analyzing {
   background-color: #242424;
   border: 1px solid #646cff;
   border-radius: 6px;
-  padding: 1rem;
+  padding: 1.25rem;
   margin-bottom: 1rem;
   color: #fff;
   text-align: center;
+}
+
+.analyzing-message {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+}
+
+.analyzing-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  color: #aaa;
+}
+
+.analyzing-clock {
+  display: inline-block;
+  animation: analyzing-tick 1s ease-in-out infinite;
+}
+
+@keyframes analyzing-tick {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
 }
 
 .analysis-results {
@@ -1205,6 +1248,20 @@
 
 .report-format-lifestyle {
   color: #bae6fd;
+}
+
+.report-format-row-abnormal {
+  background: rgba(248, 113, 113, 0.06);
+}
+
+.report-param-status-badge {
+  display: inline-block;
+  margin-top: 0.25rem;
+  padding: 0.15rem 0.4rem;
+  background: rgba(248, 113, 113, 0.25);
+  color: #fca5a5;
+  font-size: 0.75rem;
+  border-radius: 4px;
 }
 
 @media (max-width: 768px) {

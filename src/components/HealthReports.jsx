@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { analyzeHealthReport, generateAyurvedaRecommendations } from '../lib/aiService'
+import { formatDateDMY, formatDateTimeDMY } from '../utils/dateFormat'
 import './HealthReports.css'
 
 const REPORT_CATEGORIES = ['Heart', 'Liver', 'Kidney', 'Blood', 'Metabolic', 'Electrolytes', 'Thyroid', 'Urine', 'Tumor Markers']
@@ -31,6 +32,9 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
   const [reportDate, setReportDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [error, setError] = useState('')
   const [analyzingReportId, setAnalyzingReportId] = useState(null)
+  const [analysisStartTime, setAnalysisStartTime] = useState(null)
+  const [analysisElapsedSeconds, setAnalysisElapsedSeconds] = useState(0)
+  const ANALYSIS_MIN_SECONDS = 12
 
   const [showAddChoice, setShowAddChoice] = useState(false)
   const [showManualEntry, setShowManualEntry] = useState(false)
@@ -62,7 +66,7 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
     async function load() {
       const [refRes, remedyRes] = await Promise.all([
         supabase.from('blood_marker_reference').select('name, aliases'),
-        supabase.from('ayurveda_remedy_lookup').select('marker_name, condition, remedy_text, lifestyle_modification, dosage_notes'),
+        supabase.from('ayurveda_remedy_lookup').select('marker_name, condition, remedy_text, lifestyle_modification, dietary_recommendations, dosage_notes'),
       ])
       if (cancelled) return
       if (!refRes.error) setBloodMarkerReference(refRes.data || [])
@@ -83,6 +87,36 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
     })
   }, [reports])
 
+  // Ticking clock while analysis is in progress (so UI updates every second)
+  useEffect(() => {
+    if (!analyzingReportId || analysisStartTime == null) return
+    const tick = () => setAnalysisElapsedSeconds(Math.floor((Date.now() - analysisStartTime) / 1000))
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [analyzingReportId, analysisStartTime])
+
+  // Processing reports on load: mark completed in background only (no banner). Banner starts only on "Generate Ayurveda analysis" click.
+  useEffect(() => {
+    const processing = (reports || []).filter((r) => r.analysis_status === 'processing')
+    if (processing.length === 0) return
+    const ids = processing.map((r) => r.id)
+    ;(async () => {
+      for (const id of ids) {
+        await supabase.from('health_reports').update({ analysis_status: 'completed' }).eq('id', id)
+      }
+      await loadReports()
+    })()
+  }, [reports])
+
+  /** Report list/header label: never show raw YYYY-MM-DD; use "Name 12 January 2026" format only. */
+  function getReportDisplayName(report) {
+    const name = (report.report_name || 'Unnamed').trim()
+    const dateStr = report.report_date ? formatDateDMY(report.report_date) : formatDateDMY(report.uploaded_at)
+    const withoutRawDate = name.replace(/\s*\d{4}-\d{2}-\d{2}\s*$/, '').trim() || 'Unnamed'
+    return `${withoutRawDate} ${dateStr}`
+  }
+
   // Disabled automatic polling to prevent infinite requests
   // Reports will be reloaded manually when:
   // 1. User clicks "Start Analysis"
@@ -92,10 +126,12 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
   function getRemedyForParam(param, reference, remedyList) {
     if (param.status !== 'abnormal' || !reference?.length || !remedyList?.length) return null
     const nameTrim = (param.name || '').trim().toLowerCase()
-    const canonical = reference.find(
+    const refRow = reference.find(
       (r) => r.name?.toLowerCase() === nameTrim || (r.aliases || []).some((a) => String(a).toLowerCase() === nameTrim)
-    )?.name
+    )
+    const canonical = refRow?.name
     if (!canonical) return null
+    const matchNames = [canonical, ...(refRow.aliases || [])].map((n) => (n || '').trim().toLowerCase()).filter(Boolean)
     const numFromStr = (s) => (s && parseFloat(String(s).replace(/[^0-9.-]/g, ' ').trim().split(/\s+/)[0])) ?? NaN
     const valNum = numFromStr(param.value)
     const rangeStr = param.normal_range || ''
@@ -107,9 +143,9 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
       : null
     if (!condition) return null
     const remedy = remedyList.find(
-      (r) => (r.marker_name || '').trim().toLowerCase() === canonical.toLowerCase() && r.condition === condition
+      (r) => matchNames.includes((r.marker_name || '').trim().toLowerCase()) && r.condition === condition
     )
-    return remedy ? { remedy_text: remedy.remedy_text, lifestyle_modification: remedy.lifestyle_modification, dosage_notes: remedy.dosage_notes } : null
+    return remedy ? { remedy_text: remedy.remedy_text, lifestyle_modification: remedy.lifestyle_modification, dietary_recommendations: remedy.dietary_recommendations, dosage_notes: remedy.dosage_notes } : null
   }
 
   const loadReports = async () => {
@@ -287,11 +323,19 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
       setAyurvedaMessage('Remedies from database are shown below each abnormal parameter. Turn on AI for personalized recommendations.')
       return
     }
-    setGeneratingAyurveda(true)
     setAyurvedaMessage('')
+    setGeneratingAyurveda(true)
+    setSelectedReportIdForView(ayurvedaReportId)
+    setAnalyzingReportId(ayurvedaReportId)
+    setAnalysisStartTime(Date.now())
+    const delayMs = ANALYSIS_MIN_SECONDS * 1000
+    await new Promise((r) => setTimeout(r, delayMs))
+    setAnalyzingReportId(null)
+    setAnalysisStartTime(null)
     try {
       await generateAyurvedaRecommendations(ayurvedaReportId, userId)
       setAyurvedaMessage('Recommendations generated. Scroll to the report to see "What to do & remedies".')
+      setAnalysisCompleteReportId(ayurvedaReportId)
       await loadReports()
     } catch (err) {
       setAyurvedaMessage('Error: ' + (err?.message || 'Failed to generate'))
@@ -534,7 +578,10 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
   }
 
   const analyzeReport = async (reportId, fileUrl, filePath, fileType) => {
+    const startTime = Date.now()
     setAnalyzingReportId(reportId)
+    setAnalysisStartTime(startTime)
+    setAnalysisElapsedSeconds(0)
     console.log('=== Starting Analysis ===')
     console.log('Report ID:', reportId)
     console.log('File Path:', filePath)
@@ -554,14 +601,18 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
       }
       console.log('Status updated to processing')
 
+      // Show "Analysing data..." for at least 12 seconds, then call the backend
+      await new Promise((resolve) => setTimeout(resolve, ANALYSIS_MIN_SECONDS * 1000))
+
       // Call AI analysis via Supabase Edge Function
       console.log('Calling Edge Function...')
       console.log('Parameters:', { fileUrl: fileUrl?.substring(0, 50) + '...', filePath, fileType, reportId })
-      
+
       await performAIAnalysis(fileUrl, filePath, fileType, reportId)
-      
+
       console.log('✅ Analysis completed successfully')
       setAnalysisCompleteReportId(reportId)
+      clearAnalysisState()
       await loadReports()
     } catch (err) {
       console.error('❌ Error analyzing report:', err)
@@ -584,10 +635,15 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
       const errorMsg = err.message || 'Unknown error. Check browser console (F12) for details.'
       setError('AI analysis failed: ' + errorMsg)
       alert('Analysis failed: ' + errorMsg + '\n\nCheck browser console (F12) for more details.')
-    } finally {
       setAnalyzingReportId(null)
+      setAnalysisStartTime(null)
+    } finally {
       await loadReports()
     }
+  }
+  const clearAnalysisState = () => {
+    setAnalyzingReportId(null)
+    setAnalysisStartTime(null)
   }
 
   const performAIAnalysis = async (fileUrl, filePath, fileType, reportId) => {
@@ -666,18 +722,18 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
 
   const allMembers = [{ id: 'user', name: 'Myself' }, ...(familyMembers || [])]
 
-  function getAbnormalSectionsByCategory(report) {
+  function getSectionsByCategory(report) {
     const byCat = {}
     const readings = report.health_parameter_readings || []
     const analysisList = report.health_analysis || []
     if (readings.length > 0 && analysisList.length === 0) {
       readings.forEach((r) => {
-        if (r.status !== 'abnormal') return
         if (!byCat[r.category]) byCat[r.category] = []
         byCat[r.category].push({
           name: r.parameter_name,
           value: r.parameter_value,
-          normal_range: r.normal_range
+          normal_range: r.normal_range,
+          status: r.status || 'normal'
         })
       })
     } else {
@@ -685,13 +741,13 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
         if (a.category === 'Recommendations') return
         const parameters = a.findings?.parameters || []
         parameters.forEach((p) => {
-          if (p.status !== 'abnormal') return
           const cat = a.category || 'Other'
           if (!byCat[cat]) byCat[cat] = []
           byCat[cat].push({
             name: p.name,
             value: p.value,
-            normal_range: p.normal_range || ''
+            normal_range: p.normal_range || '',
+            status: p.status || 'normal'
           })
         })
       })
@@ -709,15 +765,15 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
       <>
       <div className="report-header">
         <div>
-          <h3>{report.report_name}</h3>
+          <h3>{getReportDisplayName(report)}</h3>
           {report.report_type && <span className="report-type">{report.report_type}</span>}
           <div className="report-meta">
             {report.report_date && (
-              <span>Report date: {new Date(report.report_date).toLocaleDateString()}</span>
+              <span>Report date: {formatDateDMY(report.report_date)}</span>
             )}
-            <span>Uploaded: {new Date(report.uploaded_at).toLocaleDateString()}</span>
+            <span>Uploaded: {formatDateDMY(report.uploaded_at)}</span>
             {report.analyzed_at && (
-              <span>Analyzed: {new Date(report.analyzed_at).toLocaleDateString()}</span>
+              <span>Analyzed: {formatDateDMY(report.analyzed_at)}</span>
             )}
           </div>
         </div>
@@ -767,22 +823,23 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
           </button>
         </div>
       )}
-      {report.analysis_status === 'processing' && (
+      {(report.analysis_status === 'processing' || (report.analysis_status === 'completed' && analyzingReportId === report.id)) && (
         <div className="analyzing">
-          <p>🤖 AI is analyzing your report... This may take 30-60 seconds. Please wait.</p>
+          <p className="analyzing-message">Analysing data & generating recommendations…</p>
           {analyzingReportId === report.id && (
-            <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#888' }}>
-              Processing in progress...
+            <div className="analyzing-timer" aria-live="polite">
+              <span className="analyzing-clock">⏱</span>
+              <span>{analysisElapsedSeconds}s</span>
             </div>
           )}
         </div>
       )}
-      {report.analysis_status === 'completed' && (() => {
-        const sections = getAbnormalSectionsByCategory(report)
+      {report.analysis_status === 'completed' && analyzingReportId !== report.id && (() => {
+        const sections = getSectionsByCategory(report)
         if (sections.length === 0) {
           return (
             <div className="analysis-results analysis-results-empty">
-              <p>No abnormal parameters in this report.</p>
+              <p>No parameters in this report.</p>
             </div>
           )
         }
@@ -800,7 +857,7 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
                     <table className="report-format-table">
                       <thead>
                         <tr>
-                          <th>Parameter (below/above normal)</th>
+                          <th>Parameter (value & normal range)</th>
                           <th>Ayurvedic remedy</th>
                           <th>Dietary recommendations</th>
                           <th>Lifestyle modifications</th>
@@ -808,14 +865,15 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
                       </thead>
                       <tbody>
                         {params.map((p, idx) => {
-                          const param = { name: p.name, value: p.value, normal_range: p.normal_range, status: 'abnormal' }
-                          const remedy = getRemedyForParam(param, bloodMarkerReference, remedyLookup)
+                          const param = { name: p.name, value: p.value, normal_range: p.normal_range, status: p.status }
+                          const remedy = p.status === 'abnormal' ? getRemedyForParam(param, bloodMarkerReference, remedyLookup) : null
                           return (
-                            <tr key={idx} className="report-format-row">
+                            <tr key={idx} className={`report-format-row report-format-row-${p.status || 'normal'}`}>
                               <td className="report-format-param">
                                 <span className="report-param-name">{p.name}</span>
                                 <span className="report-param-detail">Value: {p.value}</span>
                                 {p.normal_range && <span className="report-param-range">Normal: {p.normal_range}</span>}
+                                {p.status === 'abnormal' && <span className="report-param-status-badge">Abnormal</span>}
                               </td>
                               <td className="report-format-remedy">{remedy ? remedy.remedy_text : '—'}</td>
                               <td className="report-format-dietary">{remedy?.dietary_recommendations ?? '—'}</td>
@@ -864,6 +922,15 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
     <div className="health-reports">
       <div className="reports-header">
         <h2>Health Reports & Analysis</h2>
+        {analyzingReportId && (
+          <div className="analyzing-global-banner">
+            <p className="analyzing-message">Analysing data & generating recommendations…</p>
+            <div className="analyzing-timer" aria-live="polite">
+              <span className="analyzing-clock">⏱</span>
+              <span>{analysisElapsedSeconds}s</span>
+            </div>
+          </div>
+        )}
         {analysisCompleteReportId && (
           <div className="analysis-complete-banner">
             <button
@@ -960,7 +1027,7 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
               <option value="">Select report...</option>
               {reportsForAyurveda.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {r.report_name || 'Unnamed'} — {r.report_date ? new Date(r.report_date).toLocaleDateString() : new Date(r.uploaded_at).toLocaleDateString()}
+                  {getReportDisplayName(r)}
                 </option>
               ))}
             </select>
@@ -994,7 +1061,7 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
               >
                 {nonArchivedReports.map((r) => (
                   <option key={r.id} value={r.id}>
-                    {r.report_name || 'Unnamed'} — {r.report_date ? new Date(r.report_date).toLocaleDateString() : new Date(r.uploaded_at).toLocaleDateString()}
+                    {getReportDisplayName(r)}
                   </option>
                 ))}
               </select>
@@ -1014,7 +1081,7 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
                   <div className="report-analysis-header report-analysis-meta-card">
                     <div className="report-analysis-meta-row">
                       <span className="report-analysis-label">Report name</span>
-                      <strong className="report-analysis-value">{selectedReport.report_name || 'Unnamed'}</strong>
+                      <strong className="report-analysis-value">{getReportDisplayName(selectedReport)}</strong>
                     </div>
                     <div className="report-analysis-meta-row">
                       <span className="report-analysis-label">Name</span>
@@ -1023,10 +1090,7 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
                     <div className="report-analysis-meta-row">
                       <span className="report-analysis-label">Generated</span>
                       <strong className="report-analysis-value">
-                        {new Date(selectedReport.uploaded_at).toLocaleString(undefined, {
-                          dateStyle: 'medium',
-                          timeStyle: 'short'
-                        })}
+                        {formatDateTimeDMY(selectedReport.uploaded_at)}
                       </strong>
                     </div>
                   </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { formatDateTimeDMY } from '../utils/dateFormat'
 import './AdminDashboard.css'
 
 function AdminDashboard({ onBack }) {
@@ -106,11 +107,7 @@ function AdminDashboard({ onBack }) {
 
   const formatDate = (s) => {
     if (!s) return '—'
-    try {
-      return new Date(s).toLocaleString()
-    } catch {
-      return s
-    }
+    return formatDateTimeDMY(s) || '—'
   }
 
   if (loading) {
