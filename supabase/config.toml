@@ -12,3 +12,6 @@ verify_jwt = false
 
 [functions.verify-razorpay-analysis-payment]
 verify_jwt = false
+
+[functions.grant-analysis-coupon]
+verify_jwt = false

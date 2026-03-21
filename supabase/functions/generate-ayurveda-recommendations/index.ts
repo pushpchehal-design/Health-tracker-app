@@ -1,10 +1,16 @@
-// Edge Function: Generate Ayurveda recommendations for an existing report (RAG + Gemini).
-// POST body: { reportId: string, userId: string }
+// Edge Function: Generate Ayurveda recommendations for an existing report (RAG + Gemini or Claude).
+// Embeddings stay on Gemini (gemini-embedding-001). Text generation: GEMINI or Claude via AYURVEDA_LLM_PROVIDER.
+// POST body: { reportId: string, userId: string, llmProvider?: 'gemini' | 'claude' }
+// Per-request llmProvider overrides Edge secret AYURVEDA_LLM_PROVIDER when valid.
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { completeWithClaude } from '../_shared/claude.ts'
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
+const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') ?? ''
+/** `gemini` (default) | `claude` — Claude needs ANTHROPIC_API_KEY; embeddings always use GEMINI_API_KEY. */
+const AYURVEDA_LLM = (Deno.env.get('AYURVEDA_LLM_PROVIDER') ?? 'gemini').toLowerCase()
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
@@ -34,6 +40,9 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}))
     const reportId = body.reportId ?? body.report_id
     const userId = body.userId ?? body.user_id
+    const rawLlm = String(body.llmProvider ?? body.llm_provider ?? '').toLowerCase()
+    const textLlm =
+      rawLlm === 'claude' || rawLlm === 'gemini' ? rawLlm : AYURVEDA_LLM
 
     if (!reportId || !userId) {
       return new Response(
@@ -183,28 +192,54 @@ Use minimal tokens. Format: Marker >> Condition >> One-line remedy.
 **When to see a doctor:** 1 sentence.
 Output only the report text. No greeting. Start with **Key Findings:**.`
 
-    const genRes = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 4096 }
-      })
-    })
-    if (!genRes.ok) {
-      const errText = await genRes.text()
-      console.error('Gemini error:', errText)
-      return new Response(
-        JSON.stringify({ error: 'Failed to generate recommendations.' }),
-        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      )
-    }
-    const genData = await genRes.json()
     let recText = ''
-    for (const part of genData?.candidates?.[0]?.content?.parts || []) {
-      if (part.text) recText += part.text
+
+    if (textLlm === 'claude') {
+      if (!ANTHROPIC_API_KEY) {
+        return new Response(
+          JSON.stringify({
+            error:
+              'Claude was selected but ANTHROPIC_API_KEY is not set on the server. Add it in Supabase → Edge Functions → Secrets, or choose Gemini.',
+          }),
+          { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        )
+      }
+      try {
+        recText = await completeWithClaude({
+          apiKey: ANTHROPIC_API_KEY,
+          prompt,
+          maxTokens: 4096,
+        })
+      } catch (claudeErr: unknown) {
+        console.error('Claude error:', claudeErr)
+        return new Response(
+          JSON.stringify({ error: 'Failed to generate recommendations (Claude).' }),
+          { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        )
+      }
+    } else {
+      const genRes = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 4096 }
+        })
+      })
+      if (!genRes.ok) {
+        const errText = await genRes.text()
+        console.error('Gemini error:', errText)
+        return new Response(
+          JSON.stringify({ error: 'Failed to generate recommendations.' }),
+          { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        )
+      }
+      const genData = await genRes.json()
+      for (const part of genData?.candidates?.[0]?.content?.parts || []) {
+        if (part.text) recText += part.text
+      }
+      recText = recText.trim()
     }
-    recText = recText.trim()
     if (!recText) {
       return new Response(
         JSON.stringify({ error: 'No recommendations generated.' }),

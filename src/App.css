@@ -2,36 +2,46 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background-color: var(--app-bg);
 }
 
 .header {
-  background-color: #1a1a1a;
+  background-color: var(--app-surface);
   padding: 1.5rem 2rem;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--app-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.header-main {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
 }
 
 .header h1 {
   margin: 0;
   font-size: 1.8rem;
-  color: #fff;
+  color: var(--app-text);
 }
 
 .user-info {
   display: flex;
   align-items: center;
   gap: 1rem;
-  color: #888;
+  color: var(--app-text-muted);
   font-size: 0.9rem;
 }
 
 .logout-btn {
   padding: 0.5rem 1rem;
-  background-color: #333;
-  color: #fff;
-  border: 1px solid #444;
+  background-color: var(--app-fill-muted);
+  color: var(--app-text);
+  border: 1px solid var(--app-border-strong);
   border-radius: 6px;
   font-size: 0.9rem;
   cursor: pointer;
@@ -39,7 +49,7 @@
 }
 
 .logout-btn:hover {
-  background-color: #444;
+  background-color: var(--app-fill-hover);
 }
 
 .admin-link-btn {
@@ -62,18 +72,66 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  color: #fff;
+  color: var(--app-text);
   font-size: 1.2rem;
+}
+
+.app-shell-loading,
+.app-shell-error,
+.app-shell-config {
+  min-height: 100vh;
+  background-color: var(--app-bg);
+  color: var(--app-text);
+}
+
+.app-shell-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-shell-error,
+.app-shell-config {
+  padding: 2rem;
+  max-width: 560px;
+}
+
+.app-shell-error h1 {
+  color: #ff4444;
+}
+
+.app-shell-config h1 {
+  color: #f0ad4e;
+}
+
+.app-shell-muted {
+  font-size: 0.9rem;
+  color: var(--app-text-soft);
+}
+
+.app-shell-list {
+  font-size: 0.9rem;
+  color: var(--app-text-muted);
+  margin-left: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.app-shell-code {
+  background: var(--app-fill-muted);
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  border: 1px solid var(--app-border);
 }
 
 .main-content {
   flex: 1;
   padding: 2rem;
+  background-color: var(--app-bg);
 }
 
 .dashboard h2 {
   margin: 0 0 1.5rem 0;
-  color: #fff;
+  color: var(--app-text);
 }
 
 .cards {
@@ -84,15 +142,15 @@
 }
 
 .card {
-  background-color: #1a1a1a;
-  border: 1px solid #333;
+  background-color: var(--app-surface);
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   padding: 1.5rem;
 }
 
 .card h3 {
   margin: 0 0 0.5rem 0;
-  color: #888;
+  color: var(--app-text-muted);
   font-size: 0.9rem;
   font-weight: 500;
   text-transform: uppercase;
@@ -100,7 +158,7 @@
 
 .card .value {
   margin: 0;
-  color: #fff;
+  color: var(--app-text);
   font-size: 2rem;
   font-weight: 600;
 }
@@ -111,12 +169,12 @@
 
 .add-entry h2 {
   margin: 0 0 1.5rem 0;
-  color: #fff;
+  color: var(--app-text);
 }
 
 .entry-form {
-  background-color: #1a1a1a;
-  border: 1px solid #333;
+  background-color: var(--app-surface);
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   padding: 2rem;
   display: flex;
@@ -131,30 +189,30 @@
 }
 
 .form-group label {
-  color: #888;
+  color: var(--app-text-muted);
   font-size: 0.9rem;
   font-weight: 500;
 }
 
 .form-group input {
   padding: 0.75rem;
-  border: 1px solid #333;
+  border: 1px solid var(--app-border);
   border-radius: 6px;
-  background-color: #242424;
-  color: #fff;
+  background-color: var(--app-bg);
+  color: var(--app-text);
   font-size: 1rem;
   font-family: inherit;
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: #646cff;
+  border-color: var(--app-accent);
 }
 
 .submit-btn {
   padding: 0.75rem 1.5rem;
-  background-color: #646cff;
-  color: #fff;
+  background-color: var(--app-accent);
+  color: var(--app-on-accent);
   border: none;
   border-radius: 6px;
   font-size: 1rem;
@@ -165,12 +223,12 @@
 }
 
 .submit-btn:hover {
-  background-color: #535bf2;
+  background-color: var(--app-accent-hover);
 }
 
 .profile-card {
-  background-color: #1a1a1a;
-  border: 1px solid #333;
+  background-color: var(--app-surface);
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   padding: 2rem;
   margin-bottom: 2rem;
@@ -182,7 +240,7 @@
 
 .profile-header h3 {
   margin: 0;
-  color: #fff;
+  color: var(--app-text);
   font-size: 1.5rem;
 }
 
@@ -190,7 +248,7 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  color: #888;
+  color: var(--app-text-muted);
 }
 
 .profile-details div {
@@ -200,20 +258,20 @@
 }
 
 .profile-details strong {
-  color: #fff;
+  color: var(--app-text);
   min-width: 120px;
 }
 
 .conditions-section {
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid #333;
+  border-top: 1px solid var(--app-border);
 }
 
 .conditions-section strong {
   display: block;
   margin-bottom: 0.5rem;
-  color: #fff;
+  color: var(--app-text);
 }
 
 .conditions-tags {
@@ -224,23 +282,24 @@
 }
 
 .condition-tag {
-  background-color: #333;
-  color: #fff;
+  background-color: var(--app-fill-muted);
+  color: var(--app-text);
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
   font-size: 0.9rem;
+  border: 1px solid var(--app-border);
 }
 
 .medical-history-section {
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid #333;
-  color: #888;
+  border-top: 1px solid var(--app-border);
+  color: var(--app-text-muted);
   font-size: 0.9rem;
 }
 
 .medical-history-section strong {
-  color: #fff;
+  color: var(--app-text);
   display: block;
   margin-bottom: 0.5rem;
 }

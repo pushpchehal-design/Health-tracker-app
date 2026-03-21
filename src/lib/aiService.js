@@ -10,9 +10,11 @@ import { supabase } from './supabase'
  * @param {string} fileType - Type of file (pdf, docx, image)
  * @param {string} reportId - ID of the health report record
  * @param {boolean} useAiFallback - If true, use AI when PDF text cannot be extracted (scans/images). If false, no API calls.
+ * @param {{ llmProvider?: 'gemini' | 'claude' }} [opts] - Which provider reads the file when AI is on (default gemini).
  * @returns {Promise<Object>} Analysis results
  */
-export async function analyzeHealthReport(fileUrl, filePath, fileType, reportId, useAiFallback = false) {
+export async function analyzeHealthReport(fileUrl, filePath, fileType, reportId, useAiFallback = false, opts = {}) {
+  const llmProvider = opts.llmProvider === 'claude' ? 'claude' : 'gemini'
   try {
     if (!reportId) {
       throw new Error('Report ID is required for analysis')
@@ -28,14 +30,12 @@ export async function analyzeHealthReport(fileUrl, filePath, fileType, reportId,
       throw new Error('Supabase URL or anon key is missing. Check your .env has VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, then restart the dev server (npm run dev).')
     }
 
-    // In dev, use Vite proxy to avoid CORS (browser → same origin → Vite → Supabase)
+    // Call Supabase directly (Edge Function sets Access-Control-Allow-Origin: *). Avoids dev-only Vite proxy
+    // misconfiguration that produced 404 → false "function not found" on localhost.
     const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token ?? supabaseAnonKey
-    const isDev = import.meta.env.DEV
-    const functionUrl = isDev
-      ? `${window.location.origin}/supabase-functions/functions/v1/analyze-health-report`
-      : `${supabaseUrl}/functions/v1/analyze-health-report`
-    console.log('Edge Function URL:', isDev ? '(proxied)' : supabaseUrl + '/functions/v1/...')
+    const functionUrl = `${supabaseUrl}/functions/v1/analyze-health-report`
+    console.log('Edge Function URL:', supabaseUrl + '/functions/v1/analyze-health-report')
 
     // Call Supabase Edge Function (direct fetch is more reliable than invoke for Edge Functions)
     try {
@@ -45,9 +45,12 @@ export async function analyzeHealthReport(fileUrl, filePath, fileType, reportId,
         filePath,
         fileType,
         reportId,
-        useAiFallback: useAiFallback === true
+        useAiFallback: useAiFallback === true,
+        llmProvider,
       })
-      console.log(useAiFallback ? 'AI requested: backend will use Gemini for extraction.' : 'AI not requested: backend may use no-AI parser.')
+      console.log(
+        useAiFallback ? `AI requested: backend will use ${llmProvider} for file extraction.` : 'AI not requested: backend may use no-AI parser.',
+      )
 
       let data, error
       const response = await fetch(functionUrl, {
@@ -62,12 +65,25 @@ export async function analyzeHealthReport(fileUrl, filePath, fileType, reportId,
           filePath,
           fileType,
           reportId,
-          useAiFallback: useAiFallback === true
+          useAiFallback: useAiFallback === true,
+          llmProvider,
         })
       })
 
       if (!response.ok) {
         const errorText = await response.text()
+        try {
+          const j = JSON.parse(errorText)
+          if (typeof j?.error === 'string') {
+            throw new Error(j.error)
+          }
+        } catch (e) {
+          if (e instanceof SyntaxError) {
+            /* not JSON — use generic below */
+          } else {
+            throw e
+          }
+        }
         throw new Error(`Edge Function error (${response.status}): ${errorText || response.statusText}`)
       }
 
@@ -100,8 +116,10 @@ export async function analyzeHealthReport(fileUrl, filePath, fileType, reportId,
     } catch (invokeError) {
       console.error('Error invoking Edge Function:', invokeError)
       const msg = invokeError.message || ''
-      if (msg.includes('Function not found') || msg.includes('404')) {
-        throw new Error('Edge Function not found. Deploy it: npx supabase functions deploy analyze-health-report')
+      if (/^Edge Function error \(404\)/.test(msg) || /functions\/v1\/\S+\s*404/i.test(msg)) {
+        throw new Error(
+          'Edge Function returned 404. Deploy: npx supabase functions deploy analyze-health-report — or check VITE_SUPABASE_URL matches your project.',
+        )
       }
       if (msg.includes('Failed to fetch') || msg.includes('Load failed') || msg.includes('NetworkError')) {
         throw new Error(
@@ -130,10 +148,7 @@ export async function testGeminiConnection() {
   if (!supabaseUrl || !supabaseAnonKey) {
     return { success: false, error: 'Missing Supabase URL or anon key in .env' }
   }
-  const isDev = import.meta.env.DEV
-  const functionUrl = isDev
-    ? `${window.location.origin}/supabase-functions/functions/v1/analyze-health-report`
-    : `${supabaseUrl}/functions/v1/analyze-health-report`
+  const functionUrl = `${supabaseUrl}/functions/v1/analyze-health-report`
   try {
     const response = await fetch(functionUrl, {
       method: 'POST',
@@ -155,23 +170,27 @@ export async function testGeminiConnection() {
 }
 
 /**
- * Generate Ayurveda recommendations for an existing report (RAG + Gemini).
+ * Generate Ayurveda recommendations for an existing report (RAG + Gemini or Claude).
  * Uses Supabase client invoke so auth (session JWT or anon) is sent correctly.
  * @param {string} reportId - Health report ID
  * @param {string} userId - Current user ID (for auth)
+ * @param {{ llmProvider?: 'gemini' | 'claude' }} [opts] - Text model for this request (embeddings always Gemini server-side)
  * @returns {Promise<{ success: boolean, recommendations?: string, error?: string }>}
  */
-export async function generateAyurvedaRecommendations(reportId, userId) {
+export async function generateAyurvedaRecommendations(reportId, userId, opts = {}) {
+  const llmProvider = opts.llmProvider === 'claude' ? 'claude' : 'gemini'
   const { data, error } = await supabase.functions.invoke('generate-ayurveda-recommendations', {
-    body: { reportId, userId },
+    body: { reportId, userId, llmProvider },
   })
   if (error) {
     let message = error.message || 'Request failed'
     if (error.context?.json) {
       try {
-        const body = await error.context.json()
-        if (body?.error) message = body.error
-      } catch (_) {}
+        const errBody = await error.context.json()
+        if (errBody?.error) message = errBody.error
+      } catch {
+        /* ignore */
+      }
     }
     throw new Error(message)
   }

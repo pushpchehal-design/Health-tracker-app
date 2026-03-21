@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import ThemePicker from './ThemePicker'
 import './Auth.css'
 
 // Razorpay verification: when user enters this as "email", sign in with the real Supabase user below
@@ -76,6 +77,9 @@ function Auth() {
   if (showForgotPassword) {
     return (
       <div className="auth-container">
+        <div className="auth-theme-row">
+          <ThemePicker />
+        </div>
         <div className="auth-card">
           <h1>Health Tracker</h1>
           <h2>Forgot password</h2>
@@ -115,6 +119,9 @@ function Auth() {
 
   return (
     <div className="auth-container">
+      <div className="auth-theme-row">
+        <ThemePicker />
+      </div>
       <div className="auth-card">
         <h1>Health Tracker</h1>
         <h2>{isSignUp ? 'Sign Up' : 'Sign In'}</h2>

@@ -11,14 +11,14 @@
 
 .reports-header h2 {
   margin: 0;
-  color: #fff;
+  color: var(--app-text);
   font-size: 1.8rem;
 }
 
 .upload-report-btn {
   padding: 0.75rem 1.5rem;
-  background-color: #646cff;
-  color: #fff;
+  background-color: var(--app-accent);
+  color: var(--app-text);
   border: none;
   border-radius: 6px;
   font-size: 1rem;
@@ -28,12 +28,12 @@
 }
 
 .upload-report-btn:hover {
-  background-color: #535bf2;
+  background-color: var(--app-accent-hover);
 }
 
 .add-report-choice {
-  background-color: #1a1a1a;
-  border: 1px solid #333;
+  background-color: var(--app-surface);
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   padding: 2rem;
   margin-bottom: 2rem;
@@ -41,7 +41,7 @@
 
 .add-report-choice-label {
   margin: 0 0 1.25rem 0;
-  color: #ccc;
+  color: var(--app-text-soft);
   font-size: 1rem;
 }
 
@@ -57,31 +57,31 @@
   align-items: center;
   gap: 0.5rem;
   padding: 1.5rem 1.25rem;
-  background: #242424;
-  border: 2px solid #444;
+  background: var(--app-bg);
+  border: 2px solid var(--app-border-strong);
   border-radius: 8px;
-  color: #fff;
+  color: var(--app-text);
   cursor: pointer;
   transition: border-color 0.2s, background-color 0.2s;
   text-align: center;
 }
 
 .add-report-option-btn:hover {
-  border-color: #646cff;
-  background: #2a2a2a;
+  border-color: var(--app-accent);
+  background: var(--app-elevated);
 }
 
 .add-report-option-btn-disabled,
 .add-report-option-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  border-color: #333;
+  border-color: var(--app-border);
 }
 
 .add-report-option-btn-disabled:hover,
 .add-report-option-btn:disabled:hover {
-  border-color: #333;
-  background: #242424;
+  border-color: var(--app-border);
+  background: var(--app-bg);
 }
 
 .add-report-ai-required {
@@ -90,7 +90,7 @@
   background: rgba(100, 108, 255, 0.15);
   border: 1px solid rgba(100, 108, 255, 0.4);
   border-radius: 6px;
-  color: #a0a0ff;
+  color: var(--app-accent);
   font-size: 0.9rem;
 }
 
@@ -105,12 +105,12 @@
 
 .add-report-option-btn .option-desc {
   font-size: 0.85rem;
-  color: #888;
+  color: var(--app-text-muted);
 }
 
 .manual-entry-section {
-  background-color: #1a1a1a;
-  border: 1px solid #333;
+  background-color: var(--app-surface);
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   padding: 2rem;
   margin-bottom: 2rem;
@@ -118,7 +118,7 @@
 
 .manual-entry-section h3 {
   margin: 0 0 1.5rem 0;
-  color: #fff;
+  color: var(--app-text);
   font-size: 1.2rem;
 }
 
@@ -129,9 +129,9 @@
 .manual-category-block {
   margin-top: 1.5rem;
   padding: 1rem;
-  background: #242424;
+  background: var(--app-bg);
   border-radius: 8px;
-  border: 1px solid #333;
+  border: 1px solid var(--app-border);
 }
 
 .manual-category-header {
@@ -143,7 +143,7 @@
 
 .manual-category-header h4 {
   margin: 0;
-  color: #ccc;
+  color: var(--app-text-soft);
   font-size: 1rem;
 }
 
@@ -175,15 +175,15 @@
 
 .manual-marker-row label {
   font-size: 0.85rem;
-  color: #888;
+  color: var(--app-text-muted);
 }
 
 .manual-marker-row input {
   padding: 0.5rem;
-  background: #1a1a1a;
-  border: 1px solid #444;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-strong);
   border-radius: 4px;
-  color: #fff;
+  color: var(--app-text);
 }
 
 .manual-entry-actions {
@@ -193,8 +193,8 @@
 }
 
 .upload-section {
-  background-color: #1a1a1a;
-  border: 1px solid #333;
+  background-color: var(--app-surface);
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   padding: 2rem;
   margin-bottom: 2rem;
@@ -202,13 +202,13 @@
 
 .upload-section h3 {
   margin: 0 0 1.5rem 0;
-  color: #fff;
+  color: var(--app-text);
   font-size: 1.2rem;
 }
 
 .error-message {
   background-color: #ff4444;
-  color: #fff;
+  color: var(--app-text);
   padding: 0.75rem;
   border-radius: 6px;
   margin-bottom: 1rem;
@@ -234,7 +234,7 @@
 }
 
 .form-group label {
-  color: #888;
+  color: var(--app-text-muted);
   font-size: 0.9rem;
   font-weight: 500;
 }
@@ -242,10 +242,10 @@
 .form-group input,
 .form-group select {
   padding: 0.75rem;
-  border: 1px solid #333;
+  border: 1px solid var(--app-border);
   border-radius: 6px;
-  background-color: #242424;
-  color: #fff;
+  background-color: var(--app-bg);
+  color: var(--app-text);
   font-size: 1rem;
   font-family: inherit;
 }
@@ -253,7 +253,7 @@
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #646cff;
+  border-color: var(--app-accent);
 }
 
 .file-input {
@@ -263,8 +263,8 @@
 
 .file-input::file-selector-button {
   padding: 0.5rem 1rem;
-  background-color: #646cff;
-  color: #fff;
+  background-color: var(--app-accent);
+  color: var(--app-text);
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -275,22 +275,22 @@
   display: flex;
   gap: 1rem;
   margin-top: 0.5rem;
-  color: #888;
+  color: var(--app-text-muted);
   font-size: 0.9rem;
 }
 
 .form-hint {
   display: block;
   margin-top: 0.5rem;
-  color: #888;
+  color: var(--app-text-muted);
   font-size: 0.85rem;
   font-style: italic;
 }
 
 .upload-btn {
   padding: 0.75rem 1.5rem;
-  background-color: #646cff;
-  color: #fff;
+  background-color: var(--app-accent);
+  color: var(--app-on-accent);
   border: none;
   border-radius: 6px;
   font-size: 1rem;
@@ -301,7 +301,7 @@
 }
 
 .upload-btn:hover:not(:disabled) {
-  background-color: #535bf2;
+  background-color: var(--app-accent-hover);
 }
 
 .upload-btn:disabled {
@@ -312,7 +312,7 @@
 .reports-loading {
   text-align: center;
   padding: 2rem;
-  color: #888;
+  color: var(--app-text-muted);
 }
 
 .reports-list {
@@ -324,7 +324,7 @@
 .empty-reports {
   text-align: center;
   padding: 3rem;
-  color: #888;
+  color: var(--app-text-muted);
 }
 
 .empty-reports .hint {
@@ -333,8 +333,8 @@
 }
 
 .report-card {
-  background-color: #1a1a1a;
-  border: 1px solid #333;
+  background-color: var(--app-surface);
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   padding: 2rem;
 }
@@ -345,19 +345,19 @@
   align-items: flex-start;
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--app-border);
 }
 
 .report-header h3 {
   margin: 0 0 0.5rem 0;
-  color: #fff;
+  color: var(--app-text);
   font-size: 1.3rem;
 }
 
 .report-type {
   display: inline-block;
-  background-color: #333;
-  color: #888;
+  background-color: var(--app-fill-muted);
+  color: var(--app-text-muted);
   padding: 0.25rem 0.75rem;
   border-radius: 4px;
   font-size: 0.85rem;
@@ -367,7 +367,7 @@
 .report-meta {
   display: flex;
   gap: 1rem;
-  color: #888;
+  color: var(--app-text-muted);
   font-size: 0.85rem;
   margin-top: 0.5rem;
 }
@@ -387,23 +387,23 @@
 }
 
 .status-pending {
-  background-color: #333;
-  color: #888;
+  background-color: var(--app-fill-muted);
+  color: var(--app-text-muted);
 }
 
 .status-processing {
-  background-color: #646cff;
-  color: #fff;
+  background-color: var(--app-accent);
+  color: var(--app-text);
 }
 
 .status-completed {
   background-color: #22c55e;
-  color: #fff;
+  color: var(--app-text);
 }
 
 .status-failed {
   background-color: #ff4444;
-  color: #fff;
+  color: var(--app-text);
 }
 
 .delete-report-btn {
@@ -421,12 +421,12 @@
 }
 
 .pending-analysis {
-  background-color: #242424;
-  border: 1px solid #888;
+  background-color: var(--app-bg);
+  border: 1px solid var(--app-text-muted);
   border-radius: 6px;
   padding: 1rem;
   margin-bottom: 1rem;
-  color: #fff;
+  color: var(--app-text);
   text-align: center;
 }
 
@@ -436,8 +436,8 @@
 
 .analyze-btn {
   padding: 0.75rem 1.5rem;
-  background-color: #646cff;
-  color: #fff;
+  background-color: var(--app-accent);
+  color: var(--app-text);
   border: none;
   border-radius: 6px;
   font-size: 1rem;
@@ -447,7 +447,7 @@
 }
 
 .analyze-btn:hover:not(:disabled) {
-  background-color: #535bf2;
+  background-color: var(--app-accent-hover);
 }
 
 .analyze-btn:disabled {
@@ -456,12 +456,12 @@
 }
 
 .analyzing-global-banner {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  border: 1px solid #646cff;
+  background: linear-gradient(135deg, var(--app-surface) 0%, var(--app-bg) 100%);
+  border: 1px solid var(--app-accent);
   border-radius: 8px;
   padding: 1rem 1.25rem;
   margin-bottom: 1rem;
-  color: #fff;
+  color: var(--app-text);
   text-align: center;
   display: flex;
   flex-wrap: wrap;
@@ -476,12 +476,12 @@
 }
 
 .analyzing {
-  background-color: #242424;
-  border: 1px solid #646cff;
+  background-color: var(--app-bg);
+  border: 1px solid var(--app-accent);
   border-radius: 6px;
   padding: 1.25rem;
   margin-bottom: 1rem;
-  color: #fff;
+  color: var(--app-text);
   text-align: center;
 }
 
@@ -495,7 +495,7 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 1.1rem;
-  color: #aaa;
+  color: var(--app-text-muted);
 }
 
 .analyzing-clock {
@@ -514,13 +514,13 @@
 
 .analysis-results h4 {
   margin: 0 0 1.5rem 0;
-  color: #fff;
+  color: var(--app-text);
   font-size: 1.2rem;
 }
 
 .analysis-category {
-  background-color: #242424;
-  border: 1px solid #333;
+  background-color: var(--app-bg);
+  border: 1px solid var(--app-border);
   border-radius: 6px;
   padding: 1.5rem;
   margin-bottom: 1rem;
@@ -532,12 +532,12 @@
   align-items: center;
   margin-bottom: 1rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--app-border);
 }
 
 .category-header h5 {
   margin: 0;
-  color: #646cff;
+  color: var(--app-accent);
   font-size: 1.1rem;
 }
 
@@ -550,29 +550,29 @@
 
 .risk-low {
   background-color: #22c55e;
-  color: #fff;
+  color: var(--app-text);
 }
 
 .risk-moderate {
   background-color: #f59e0b;
-  color: #fff;
+  color: var(--app-text);
 }
 
 .risk-high {
   background-color: #ef4444;
-  color: #fff;
+  color: var(--app-text);
 }
 
 .risk-critical {
   background-color: #dc2626;
-  color: #fff;
+  color: var(--app-text);
 }
 
 .analysis-summary,
 .analysis-findings,
 .analysis-recommendations {
   margin-top: 1rem;
-  color: #888;
+  color: var(--app-text-muted);
   font-size: 0.9rem;
   line-height: 1.6;
 }
@@ -580,7 +580,7 @@
 .analysis-summary strong,
 .analysis-findings strong,
 .analysis-recommendations strong {
-  color: #fff;
+  color: var(--app-text);
   display: block;
   margin-bottom: 0.5rem;
 }
@@ -588,8 +588,8 @@
 .analysis-readings {
   margin-top: 1rem;
   padding: 1rem;
-  background-color: #2a2a2a;
-  border: 1px solid #444;
+  background-color: var(--app-elevated);
+  border: 1px solid var(--app-border-strong);
   border-radius: 6px;
   color: #e0e0e0;
   font-size: 0.95rem;
@@ -599,7 +599,7 @@
 }
 
 .analysis-readings strong {
-  color: #fff;
+  color: var(--app-text);
   display: block;
   margin-bottom: 0.75rem;
   font-size: 1rem;
@@ -632,31 +632,31 @@
 .parameters-table {
   width: 100%;
   border-collapse: collapse;
-  background-color: #1a1a1a;
+  background-color: var(--app-surface);
   border-radius: 6px;
   overflow: hidden;
 }
 
 .parameters-table thead {
-  background-color: #242424;
+  background-color: var(--app-bg);
 }
 
 .parameters-table th {
   padding: 0.75rem 1rem;
   text-align: left;
-  color: #fff;
+  color: var(--app-text);
   font-weight: 600;
   font-size: 0.9rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: 2px solid #333;
+  border-bottom: 2px solid var(--app-border);
 }
 
 .parameters-table td {
   padding: 0.75rem 1rem;
   color: #e0e0e0;
   font-size: 0.95rem;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--app-border);
 }
 
 .parameters-table tbody tr:last-child td {
@@ -664,7 +664,7 @@
 }
 
 .parameters-table tbody tr:hover {
-  background-color: #242424;
+  background-color: var(--app-bg);
 }
 
 .parameter-abnormal {
@@ -677,12 +677,12 @@
 }
 
 .parameter-normal {
-  background-color: #1a1a1a;
+  background-color: var(--app-surface);
 }
 
 .parameter-name {
   font-weight: 500;
-  color: #fff;
+  color: var(--app-text);
 }
 
 .parameter-value {
@@ -691,7 +691,7 @@
 }
 
 .parameter-range {
-  color: #888;
+  color: var(--app-text-muted);
   font-size: 0.9rem;
 }
 
@@ -720,12 +720,12 @@
 
 .status-normal {
   background-color: #22c55e;
-  color: #fff;
+  color: var(--app-text);
 }
 
 .status-abnormal {
   background-color: #ef4444;
-  color: #fff;
+  color: var(--app-text);
 }
 
 @media (max-width: 768px) {
@@ -755,7 +755,7 @@
 
 .analysis-error {
   background-color: #ff4444;
-  color: #fff;
+  color: var(--app-text);
   padding: 1rem;
   border-radius: 6px;
   margin-top: 1rem;
@@ -765,14 +765,14 @@
 .report-actions {
   margin-top: 1.5rem;
   padding-top: 1rem;
-  border-top: 1px solid #333;
+  border-top: 1px solid var(--app-border);
 }
 
 .view-file-btn {
   display: inline-block;
   padding: 0.75rem 1.5rem;
-  background-color: #333;
-  color: #fff;
+  background-color: var(--app-fill-muted);
+  color: var(--app-text);
   text-decoration: none;
   border-radius: 6px;
   font-size: 0.9rem;
@@ -780,7 +780,7 @@
 }
 
 .view-file-btn:hover {
-  background-color: #444;
+  background-color: var(--app-fill-hover);
 }
 
 .reports-archive-bar {
@@ -793,7 +793,7 @@
 
 .ayurveda-generate-section {
   background-color: #1a1a2a;
-  border: 1px solid #333;
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   padding: 1.5rem;
   margin-bottom: 2rem;
@@ -801,13 +801,13 @@
 
 .ayurveda-generate-section h3 {
   margin: 0 0 0.5rem 0;
-  color: #a0a0ff;
+  color: var(--app-accent);
   font-size: 1.1rem;
 }
 
 .ayurveda-generate-hint {
   margin: 0 0 1rem 0;
-  color: #888;
+  color: var(--app-text-muted);
   font-size: 0.9rem;
 }
 
@@ -823,20 +823,20 @@
   flex-direction: column;
   gap: 0.35rem;
   padding: 1rem;
-  background: #242424;
-  border: 2px solid #444;
+  background: var(--app-bg);
+  border: 2px solid var(--app-border-strong);
   border-radius: 8px;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
 
 .analysis-tier-card:hover {
-  border-color: #666;
+  border-color: var(--app-text-subtle);
 }
 
 .analysis-tier-card-selected {
-  border-color: #6366f1;
-  background: rgba(99, 102, 241, 0.12);
+  border-color: var(--app-accent);
+  background: color-mix(in srgb, var(--app-accent) 14%, transparent);
 }
 
 .analysis-tier-card input {
@@ -847,19 +847,40 @@
 
 .analysis-tier-title {
   font-weight: 600;
-  color: #e5e5e5;
+  color: var(--app-text);
   font-size: 0.95rem;
+}
+
+.analysis-tier-price-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.65rem;
+}
+
+.analysis-tier-list-price {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--app-text-muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+
+.analysis-tier-sale-price {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--app-accent);
 }
 
 .analysis-tier-price {
   font-size: 1.35rem;
   font-weight: 700;
-  color: #a5b4fc;
+  color: var(--app-accent);
 }
 
 .analysis-tier-blurb {
   font-size: 0.8rem;
-  color: #888;
+  color: var(--app-text-muted);
   line-height: 1.35;
 }
 
@@ -885,13 +906,84 @@
 }
 
 .ayurveda-pay-btn {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  background: linear-gradient(135deg, var(--app-accent) 0%, var(--app-accent-hover) 100%);
   border: none;
 }
 
 .ayurveda-pay-note {
   font-size: 0.8rem;
-  color: #666;
+  color: var(--app-text-subtle);
+}
+
+.analysis-coupon-block {
+  margin: 1rem 0 0.5rem;
+  padding: 1rem;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+}
+
+.analysis-coupon-block label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--app-text-muted);
+  min-width: 160px;
+  flex: 1;
+}
+
+.analysis-coupon-input {
+  padding: 0.55rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--app-border);
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+.analysis-coupon-input:focus {
+  outline: none;
+  border-color: var(--app-accent);
+}
+
+.analysis-coupon-apply {
+  padding: 0.55rem 1rem;
+  background: var(--app-fill-muted);
+  border: 1px solid var(--app-border-strong);
+  color: var(--app-text);
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.analysis-coupon-apply:hover:not(:disabled) {
+  border-color: var(--app-accent);
+}
+
+.analysis-coupon-apply:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.analysis-coupon-msg {
+  width: 100%;
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--app-text-muted);
+}
+
+.analysis-coupon-msg.success {
+  color: #22c55e;
+}
+
+.analysis-coupon-msg.error {
+  color: #f87171;
 }
 
 .analysis-tier-banner {
@@ -922,10 +1014,10 @@
 .ayurveda-generate-form .form-select {
   width: 100%;
   padding: 0.5rem 0.75rem;
-  background: #242424;
-  border: 1px solid #444;
+  background: var(--app-bg);
+  border: 1px solid var(--app-border-strong);
   border-radius: 6px;
-  color: #fff;
+  color: var(--app-text);
   font-size: 0.95rem;
 }
 
@@ -964,7 +1056,7 @@
 .reports-tabs {
   display: flex;
   gap: 0.25rem;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--app-border);
   padding-bottom: 0;
 }
 
@@ -973,19 +1065,19 @@
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  color: #888;
+  color: var(--app-text-muted);
   font-size: 1rem;
   cursor: pointer;
   margin-bottom: -1px;
 }
 
 .reports-tab:hover {
-  color: #ccc;
+  color: var(--app-text-soft);
 }
 
 .reports-tab-active {
-  color: #fff;
-  border-bottom-color: #646cff;
+  color: var(--app-text);
+  border-bottom-color: var(--app-accent);
 }
 
 .report-analysis-single {
@@ -1002,7 +1094,7 @@
 
 .report-selector-row label {
   font-weight: 500;
-  color: #ccc;
+  color: var(--app-text-soft);
 }
 
 .report-view-select {
@@ -1016,7 +1108,7 @@
 
 .ayurveda-context-hint {
   font-size: 0.85rem;
-  color: #888;
+  color: var(--app-text-muted);
   margin-top: 0.25rem;
   margin-bottom: 0;
 }
@@ -1029,7 +1121,7 @@
   display: inline-block;
   padding: 0.9rem 1.5rem;
   background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-  color: #fff;
+  color: var(--app-text);
   border: none;
   border-radius: 8px;
   font-size: 1rem;
@@ -1052,7 +1144,7 @@
   padding: 1.25rem;
   background: #1e1e1e;
   border-radius: 8px;
-  border: 1px solid #333;
+  border: 1px solid var(--app-border);
 }
 
 .report-analysis-meta-row {
@@ -1062,7 +1154,7 @@
 .report-analysis-meta-row .report-analysis-value {
   display: block;
   margin-top: 0.25rem;
-  color: #fff;
+  color: var(--app-text);
   font-size: 1rem;
 }
 
@@ -1071,7 +1163,7 @@
   padding: 1rem;
   background: #1e1e1e;
   border-radius: 8px;
-  border: 1px solid #333;
+  border: 1px solid var(--app-border);
 }
 
 .report-analysis-meta {
@@ -1085,14 +1177,14 @@
 .report-analysis-label {
   display: block;
   font-size: 0.8rem;
-  color: #888;
+  color: var(--app-text-muted);
   margin-bottom: 0.15rem;
 }
 
 .report-analysis-date {
   margin-left: 0.5rem;
   font-weight: normal;
-  color: #aaa;
+  color: var(--app-text-muted);
 }
 
 .archived-section {
@@ -1110,7 +1202,7 @@
   width: 100%;
   padding: 0.75rem 1rem;
   background: #252525;
-  border: 1px solid #333;
+  border: 1px solid var(--app-border);
   border-radius: 6px;
   color: #eee;
   font-size: 1rem;
@@ -1119,7 +1211,7 @@
 }
 
 .archived-member-header:hover {
-  background: #2a2a2a;
+  background: var(--app-elevated);
 }
 
 .archived-member-name {
@@ -1127,20 +1219,20 @@
 }
 
 .archived-member-count {
-  color: #888;
+  color: var(--app-text-muted);
   font-size: 0.9rem;
 }
 
 .archived-member-toggle {
   margin-left: auto;
-  color: #888;
+  color: var(--app-text-muted);
   font-size: 0.8rem;
 }
 
 .archived-member-reports {
   margin-top: 0.5rem;
   padding-left: 0.5rem;
-  border-left: 2px solid #333;
+  border-left: 2px solid var(--app-border);
 }
 
 .report-card-archived {
@@ -1169,23 +1261,23 @@
   margin-bottom: 1rem;
   padding: 0.5rem 1rem;
   background: transparent;
-  border: 1px solid #444;
-  color: #888;
+  border: 1px solid var(--app-border-strong);
+  color: var(--app-text-muted);
   border-radius: 6px;
   font-size: 0.9rem;
   cursor: pointer;
 }
 
 .show-archived-btn:hover {
-  color: #ccc;
+  color: var(--app-text-soft);
   border-color: #666;
 }
 
 .archive-all-btn {
   padding: 0.5rem 1rem;
-  background: #333;
-  border: 1px solid #444;
-  color: #fff;
+  background: var(--app-fill-muted);
+  border: 1px solid var(--app-border-strong);
+  color: var(--app-text);
   border-radius: 6px;
   font-size: 0.9rem;
   cursor: pointer;
@@ -1198,8 +1290,8 @@
 .report-archive-prompt {
   margin-top: 1rem;
   padding: 0.75rem 1rem;
-  background: #242424;
-  border: 1px solid #333;
+  background: var(--app-bg);
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -1209,15 +1301,15 @@
 
 .report-archive-prompt .archive-hint {
   margin: 0;
-  color: #888;
+  color: var(--app-text-muted);
   font-size: 0.9rem;
 }
 
 .archive-report-btn {
   padding: 0.5rem 1rem;
-  background: #333;
-  color: #fff;
-  border: 1px solid #444;
+  background: var(--app-fill-muted);
+  color: var(--app-text);
+  border: 1px solid var(--app-border-strong);
   border-radius: 6px;
   font-size: 0.9rem;
   cursor: pointer;
@@ -1236,7 +1328,7 @@
 .analysis-results-empty {
   padding: 2rem;
   text-align: center;
-  color: #888;
+  color: var(--app-text-muted);
 }
 
 .analysis-results-by-category {
@@ -1245,8 +1337,8 @@
 
 .report-category-section {
   margin-bottom: 2rem;
-  background: #242424;
-  border: 1px solid #333;
+  background: var(--app-bg);
+  border: 1px solid var(--app-border);
   border-radius: 10px;
   overflow: hidden;
 }
@@ -1256,8 +1348,8 @@
   align-items: center;
   gap: 0.75rem;
   padding: 1rem 1.25rem;
-  background: #2a2a2a;
-  border-bottom: 1px solid #333;
+  background: var(--app-elevated);
+  border-bottom: 1px solid var(--app-border);
 }
 
 .report-category-icon {
@@ -1267,7 +1359,7 @@
 
 .report-category-title {
   margin: 0;
-  color: #fff;
+  color: var(--app-text);
   font-size: 1.15rem;
   font-weight: 600;
 }
@@ -1291,12 +1383,12 @@
   padding: 0.85rem 1rem;
   color: #a5b4fc;
   font-weight: 600;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--app-border);
 }
 
 .report-format-table td {
   padding: 1rem;
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid var(--app-elevated);
   color: #e0e0e0;
   vertical-align: top;
 }
@@ -1316,7 +1408,7 @@
 .report-param-name {
   display: block;
   font-weight: 600;
-  color: #fff;
+  color: var(--app-text);
   margin-bottom: 0.25rem;
 }
 
@@ -1324,7 +1416,7 @@
 .report-param-range {
   display: block;
   font-size: 0.8rem;
-  color: #888;
+  color: var(--app-text-muted);
 }
 
 .report-format-remedy,

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { analyzeHealthReport, generateAyurvedaRecommendations } from '../lib/aiService'
 import { formatDateDMY, formatDateTimeDMY } from '../utils/dateFormat'
 import { openRazorpayPay, verifyAnalysisPayment } from '../lib/razorpayCheckout'
+import { grantAnalysisCoupon } from '../lib/analysisCoupon'
 import { ANALYSIS_TIERS, TIER_BASIC, TIER_FULL } from '../lib/analysisTiers'
 import './HealthReports.css'
 
@@ -33,7 +34,15 @@ function getAnalysisPhaseLabel(elapsedSeconds) {
   return 'Generating analysis…'
 }
 
-function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChange, user = null, userProfile = null }) {
+function HealthReports({
+  userId,
+  familyMembers,
+  aiEnabled = false,
+  aiLlmProvider = 'gemini',
+  onReportsChange,
+  user = null,
+  userProfile = null,
+}) {
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
   const [showUpload, setShowUpload] = useState(false)
@@ -65,6 +74,9 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
   const [analysisTierChoice, setAnalysisTierChoice] = useState(TIER_BASIC)
   const [entitlements, setEntitlements] = useState([])
   const [ayurvedaPayLoading, setAyurvedaPayLoading] = useState(false)
+  const [couponInput, setCouponInput] = useState('')
+  const [couponMessage, setCouponMessage] = useState('')
+  const [couponSubmitting, setCouponSubmitting] = useState(false)
   const [activeTab, setActiveTab] = useState('analysis') // 'analysis' | 'archived'
   const [selectedReportIdForView, setSelectedReportIdForView] = useState(null) // single report to show in Report Analysis tab
   const [archivedExpandedMembers, setArchivedExpandedMembers] = useState({}) // { memberId: true } for expanded sections
@@ -356,6 +368,21 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
 
   const unusedCreditForSelectedTier = entitlements.some((e) => e.tier === analysisTierChoice)
 
+  const handleApplyAnalysisCoupon = async () => {
+    if (!supabase || !userId) return
+    setCouponSubmitting(true)
+    setCouponMessage('')
+    try {
+      await grantAnalysisCoupon(supabase, analysisTierChoice, couponInput)
+      setCouponMessage('Coupon applied — 100% off. You can run Generate once for this plan.')
+      await fetchEntitlements()
+    } catch (err) {
+      setCouponMessage(err?.message || 'Could not apply coupon')
+    } finally {
+      setCouponSubmitting(false)
+    }
+  }
+
   const handlePayForAyurvedaAnalysis = async () => {
     if (!supabase || !userId) return
     setAyurvedaPayLoading(true)
@@ -427,7 +454,7 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
           .eq('id', entitlementId)
           .is('used_at', null)
         if (useErr) throw useErr
-        setAyurvedaMessage('Ayurvedic remedies (database) are shown for abnormal parameters. Dietary & lifestyle are not included in this plan.')
+        setAyurvedaMessage('Ayurvedic remedies are shown for abnormal parameters. Dietary and lifestyle guidance is not included in this plan.')
         setAnalysisCompleteReportId(ayurvedaReportId)
         await loadReports()
         await fetchEntitlements()
@@ -436,7 +463,9 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
 
       // Full tier
       if (aiEnabled) {
-        await generateAyurvedaRecommendations(ayurvedaReportId, userId)
+        await generateAyurvedaRecommendations(ayurvedaReportId, userId, {
+          llmProvider: aiLlmProvider === 'claude' ? 'claude' : 'gemini',
+        })
       }
       const { error: upErr2 } = await supabase
         .from('health_reports')
@@ -453,7 +482,7 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
       setAyurvedaMessage(
         aiEnabled
           ? 'Full analysis complete. Scroll to the report for remedies, dietary, lifestyle, and AI notes where available.'
-          : 'Full analysis layout shown: remedies, dietary, and lifestyle from the database. Turn on AI for personalized recommendations.'
+          : 'Full analysis layout shown: remedies, dietary, and lifestyle. Turn on AI for more personalized recommendations.'
       )
       setAnalysisCompleteReportId(ayurvedaReportId)
       await loadReports()
@@ -770,7 +799,9 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
   }
 
   const performAIAnalysis = async (fileUrl, filePath, fileType, reportId) => {
-    return await analyzeHealthReport(fileUrl, filePath, fileType, reportId, aiEnabled)
+    return await analyzeHealthReport(fileUrl, filePath, fileType, reportId, aiEnabled, {
+      llmProvider: aiLlmProvider === 'claude' ? 'claude' : 'gemini',
+    })
   }
 
   const handleManualAnalyze = async (report) => {
@@ -1146,10 +1177,14 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
                 onChange={() => {
                   setAnalysisTierChoice(t.id)
                   setAyurvedaMessage('')
+                  setCouponMessage('')
                 }}
               />
               <span className="analysis-tier-title">{t.title}</span>
-              <span className="analysis-tier-price">₹{t.priceInr}</span>
+              <div className="analysis-tier-price-row">
+                <span className="analysis-tier-list-price">₹{t.listPriceInr}</span>
+                <span className="analysis-tier-sale-price">₹{t.priceInr}</span>
+              </div>
               <span className="analysis-tier-blurb">{t.blurb}</span>
             </label>
           ))}
@@ -1159,18 +1194,59 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
           {unusedCreditForSelectedTier ? (
             <span className="analysis-credit-ok">You have an unused credit for this plan — you can generate once.</span>
           ) : (
-            <span className="analysis-credit-missing">No unused credit for this plan — pay below first.</span>
+            <span className="analysis-credit-missing">No unused credit for this plan — apply a coupon or pay below first.</span>
           )}
         </p>
+
+        <div className="analysis-coupon-block">
+          <label htmlFor="analysis-coupon-input">
+            Coupon code
+            <input
+              id="analysis-coupon-input"
+              type="text"
+              className="analysis-coupon-input"
+              value={couponInput}
+              onChange={(e) => {
+                setCouponInput(e.target.value)
+                setCouponMessage('')
+              }}
+              placeholder="Enter code"
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </label>
+          <button
+            type="button"
+            className="analysis-coupon-apply"
+            disabled={couponSubmitting || !couponInput.trim()}
+            onClick={handleApplyAnalysisCoupon}
+          >
+            {couponSubmitting ? 'Applying…' : 'Apply'}
+          </button>
+          {couponMessage ? (
+            <p
+              className={`analysis-coupon-msg ${couponMessage.startsWith('Coupon applied') ? 'success' : 'error'}`}
+            >
+              {couponMessage}
+            </p>
+          ) : (
+            <p className="analysis-coupon-msg">If you have a promotional code, enter it above and tap Apply.</p>
+          )}
+        </div>
 
         <div className="ayurveda-pay-row">
           <button
             type="button"
             onClick={handlePayForAyurvedaAnalysis}
-            disabled={ayurvedaPayLoading}
+            disabled={ayurvedaPayLoading || unusedCreditForSelectedTier}
             className="upload-btn ayurveda-pay-btn"
+            title={unusedCreditForSelectedTier ? 'Use Generate below — you already have a credit for this plan' : ''}
           >
-            {ayurvedaPayLoading ? 'Opening payment…' : `Pay ₹${ANALYSIS_TIERS.find((x) => x.id === analysisTierChoice)?.priceInr ?? '—'}`}
+            {unusedCreditForSelectedTier
+              ? 'Credit ready'
+              : ayurvedaPayLoading
+                ? 'Opening payment…'
+                : `Pay ₹${ANALYSIS_TIERS.find((x) => x.id === analysisTierChoice)?.priceInr ?? '—'}`}
           </button>
           <span className="ayurveda-pay-note">Secure checkout via Razorpay (test cards in test mode).</span>
         </div>

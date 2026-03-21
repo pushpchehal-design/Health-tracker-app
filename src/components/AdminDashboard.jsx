@@ -27,10 +27,7 @@ function AdminDashboard({ onBack }) {
         return
       }
       const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL || '').replace(/\/$/, '')
-      const isDev = import.meta.env.DEV
-      const url = isDev
-        ? `${window.location.origin}/supabase-functions/functions/v1/admin-list-users`
-        : `${supabaseUrl}/functions/v1/admin-list-users`
+      const url = `${supabaseUrl}/functions/v1/admin-list-users`
       const res = await fetch(url, {
         headers: {
           Authorization: `Bearer ${token}`,

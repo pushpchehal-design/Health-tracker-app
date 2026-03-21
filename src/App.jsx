@@ -6,6 +6,7 @@ import FamilyMemberSetup from './components/FamilyMemberSetup'
 import Dashboard from './components/Dashboard'
 import AdminDashboard from './components/AdminDashboard'
 import './App.css'
+import ThemePicker from './components/ThemePicker'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -152,8 +153,8 @@ function App() {
   // Show loading with visible text
   if (loading || profileLoading) {
     return (
-      <div className="app" style={{ backgroundColor: '#242424', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div className="loading" style={{ color: '#fff', fontSize: '1.5rem' }}>Loading Health Tracker...</div>
+      <div className="app app-shell-loading">
+        <div className="loading">Loading Health Tracker...</div>
       </div>
     )
   }
@@ -161,17 +162,17 @@ function App() {
   // Show config missing (e.g. Vercel env vars not set) — avoids blank page
   if (configMissing) {
     return (
-      <div className="app" style={{ backgroundColor: '#242424', minHeight: '100vh', padding: '2rem', color: '#fff', maxWidth: '560px' }}>
-        <h1 style={{ color: '#f0ad4e' }}>Configuration missing</h1>
+      <div className="app app-shell-config">
+        <h1>Configuration missing</h1>
         <p style={{ marginBottom: '1rem' }}>Supabase URL and anon key are not set. The app cannot connect to the backend.</p>
-        <p style={{ fontSize: '0.9rem', color: '#ccc', marginBottom: '0.5rem' }}>On <strong>Vercel</strong>:</p>
-        <ul style={{ fontSize: '0.9rem', color: '#888', marginLeft: '1.25rem', marginBottom: '1rem' }}>
+        <p className="app-shell-muted" style={{ marginBottom: '0.5rem' }}>On <strong>Vercel</strong>:</p>
+        <ul className="app-shell-list">
           <li>Project → <strong>Settings</strong> → <strong>Environment Variables</strong></li>
-          <li>Add <code style={{ background: '#333', padding: '0.1rem 0.3rem' }}>VITE_SUPABASE_URL</code> (e.g. <code style={{ background: '#333', padding: '0.1rem 0.3rem' }}>https://xxxx.supabase.co</code>)</li>
-          <li>Add <code style={{ background: '#333', padding: '0.1rem 0.3rem' }}>VITE_SUPABASE_ANON_KEY</code> (anon public key from Supabase → Settings → API)</li>
+          <li>Add <code className="app-shell-code">VITE_SUPABASE_URL</code> (e.g. <code className="app-shell-code">https://xxxx.supabase.co</code>)</li>
+          <li>Add <code className="app-shell-code">VITE_SUPABASE_ANON_KEY</code> (anon public key from Supabase → Settings → API)</li>
           <li>Redeploy: <strong>Deployments</strong> → ⋮ on latest → <strong>Redeploy</strong></li>
         </ul>
-        <p style={{ fontSize: '0.9rem', color: '#888', marginBottom: '1rem' }}>Locally: add them to <code style={{ background: '#333', padding: '0.1rem 0.3rem' }}>.env</code> and run <code style={{ background: '#333', padding: '0.1rem 0.3rem' }}>npm run dev</code>.</p>
+        <p className="app-shell-list" style={{ marginBottom: '1rem' }}>Locally: add them to <code className="app-shell-code">.env</code> and run <code className="app-shell-code">npm run dev</code>.</p>
       </div>
     )
   }
@@ -179,21 +180,18 @@ function App() {
   // Show error with visible text
   if (error) {
     return (
-      <div className="app" style={{ backgroundColor: '#242424', minHeight: '100vh', padding: '2rem', color: '#fff', maxWidth: '560px' }}>
-        <h1 style={{ color: '#ff4444' }}>Connection failed</h1>
+      <div className="app app-shell-error">
+        <h1>Connection failed</h1>
         <p style={{ marginBottom: '1rem' }}>{error}</p>
-        <p style={{ fontSize: '0.9rem', color: '#ccc', marginBottom: '0.5rem' }}>Quick checks:</p>
-        <ul style={{ fontSize: '0.9rem', color: '#888', marginLeft: '1.25rem', marginBottom: '1rem' }}>
-          <li><strong>.env</strong> has <code style={{ background: '#333', padding: '0.1rem 0.3rem' }}>VITE_SUPABASE_URL</code> and <code style={{ background: '#333', padding: '0.1rem 0.3rem' }}>VITE_SUPABASE_ANON_KEY</code></li>
-          <li>URL looks like <code style={{ background: '#333', padding: '0.1rem 0.3rem' }}>https://xxxx.supabase.co</code></li>
-          <li>Use the <strong>anon public</strong> key (long JWT starting with <code style={{ background: '#333', padding: '0.1rem 0.3rem' }}>eyJ</code>) from Supabase → Project Settings → API</li>
+        <p className="app-shell-muted" style={{ marginBottom: '0.5rem' }}>Quick checks:</p>
+        <ul className="app-shell-list">
+          <li><strong>.env</strong> has <code className="app-shell-code">VITE_SUPABASE_URL</code> and <code className="app-shell-code">VITE_SUPABASE_ANON_KEY</code></li>
+          <li>URL looks like <code className="app-shell-code">https://xxxx.supabase.co</code></li>
+          <li>Use the <strong>anon public</strong> key (long JWT starting with <code className="app-shell-code">eyJ</code>) from Supabase → Project Settings → API</li>
           <li>Free-tier project may be <strong>paused</strong> — open the Supabase dashboard and click “Restore project” if needed</li>
-          <li>After editing .env, restart the app: <code style={{ background: '#333', padding: '0.1rem 0.3rem' }}>npm run dev</code></li>
+          <li>After editing .env, restart the app: <code className="app-shell-code">npm run dev</code></li>
         </ul>
-        <button 
-          onClick={() => window.location.reload()} 
-          style={{ padding: '0.5rem 1rem', marginTop: '0.5rem', cursor: 'pointer' }}
-        >
+        <button type="button" onClick={() => window.location.reload()} style={{ padding: '0.5rem 1rem', marginTop: '0.5rem', cursor: 'pointer' }}>
           Retry
         </button>
       </div>
@@ -229,7 +227,10 @@ function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>Health Tracker</h1>
+        <div className="header-main">
+          <h1>Health Tracker</h1>
+          <ThemePicker className="theme-picker--inline-header" />
+        </div>
         <div className="user-info">
           {isAdmin && (
             <button

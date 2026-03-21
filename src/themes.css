@@ -1,0 +1,116 @@
+/* Theme tokens — selected via html[data-theme="…"] (see index.html inline script + ThemeContext). */
+
+:root,
+html[data-theme='black'] {
+  --app-bg: #242424;
+  --app-surface: #1a1a1a;
+  --app-elevated: #2a2a2a;
+  --app-border: #333333;
+  --app-border-strong: #444444;
+  --app-fill-muted: #333333;
+  --app-fill-hover: #444444;
+  --app-text: rgba(255, 255, 255, 0.92);
+  --app-text-soft: #cccccc;
+  --app-text-muted: #888888;
+  --app-text-subtle: #666666;
+  --app-accent: #646cff;
+  --app-accent-hover: #535bf2;
+  --app-on-accent: #ffffff;
+  --app-link: #646cff;
+  --app-link-hover: #747bff;
+  --app-shadow: rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+}
+
+html[data-theme='white'] {
+  --app-bg: #f1f5f9;
+  --app-surface: #ffffff;
+  --app-elevated: #f8fafc;
+  --app-border: #e2e8f0;
+  --app-border-strong: #cbd5e1;
+  --app-fill-muted: #e2e8f0;
+  --app-fill-hover: #cbd5e1;
+  --app-text: #0f172a;
+  --app-text-soft: #334155;
+  --app-text-muted: #64748b;
+  --app-text-subtle: #94a3b8;
+  --app-accent: #4f46e5;
+  --app-accent-hover: #4338ca;
+  --app-on-accent: #ffffff;
+  --app-link: #4f46e5;
+  --app-link-hover: #4338ca;
+  --app-shadow: rgba(15, 23, 42, 0.08);
+  color-scheme: light;
+}
+
+html[data-theme='purple'] {
+  --app-bg: #1a1225;
+  --app-surface: #251a35;
+  --app-elevated: #2f2245;
+  --app-border: #3d2f55;
+  --app-border-strong: #4a3a66;
+  --app-fill-muted: #352848;
+  --app-fill-hover: #403058;
+  --app-text: rgba(255, 255, 255, 0.93);
+  --app-text-soft: #d4c4e8;
+  --app-text-muted: #9b87b8;
+  --app-text-subtle: #7c6a94;
+  --app-accent: #a78bfa;
+  --app-accent-hover: #8b5cf6;
+  --app-on-accent: #1a1225;
+  --app-link: #c4b5fd;
+  --app-link-hover: #ddd6fe;
+  --app-shadow: rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+}
+
+html[data-theme='magenta'] {
+  --app-bg: #1f0f18;
+  --app-surface: #2a1422;
+  --app-elevated: #351a2c;
+  --app-border: #4a2540;
+  --app-border-strong: #5c3150;
+  --app-fill-muted: #3d2035;
+  --app-fill-hover: #4a2840;
+  --app-text: rgba(255, 255, 255, 0.93);
+  --app-text-soft: #f9d4ea;
+  --app-text-muted: #d484bc;
+  --app-text-subtle: #b06a9a;
+  --app-accent: #ec4899;
+  --app-accent-hover: #db2777;
+  --app-on-accent: #ffffff;
+  --app-link: #f472b6;
+  --app-link-hover: #fbcfe8;
+  --app-shadow: rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+}
+
+html[data-theme='ocean'] {
+  --app-bg: #0f172a;
+  --app-surface: #1e293b;
+  --app-elevated: #273549;
+  --app-border: #334155;
+  --app-border-strong: #475569;
+  --app-fill-muted: #334155;
+  --app-fill-hover: #475569;
+  --app-text: rgba(255, 255, 255, 0.92);
+  --app-text-soft: #cbd5e1;
+  --app-text-muted: #94a3b8;
+  --app-text-subtle: #64748b;
+  --app-accent: #2dd4bf;
+  --app-accent-hover: #14b8a6;
+  --app-on-accent: #0f172a;
+  --app-link: #5eead4;
+  --app-link-hover: #99f6e4;
+  --app-shadow: rgba(0, 0, 0, 0.4);
+  color-scheme: dark;
+}
+
+/* Primary actions keep readable label color on accent backgrounds */
+.auth-btn,
+.submit-btn,
+.upload-btn.ayurveda-pay-btn,
+.upload-btn.ayurveda-generate-btn,
+.sidebar-pay-btn {
+  color: var(--app-on-accent) !important;
+}

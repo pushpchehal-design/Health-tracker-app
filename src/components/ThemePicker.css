@@ -1,0 +1,95 @@
+.theme-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: flex-start;
+}
+
+.theme-picker.theme-picker--inline-header {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.theme-picker-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--app-text-muted);
+}
+
+.theme-picker-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.theme-chip {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid var(--app-border);
+  background: var(--app-fill-muted);
+  color: var(--app-text-soft);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.theme-chip:hover {
+  border-color: var(--app-accent);
+  color: var(--app-text);
+}
+
+.theme-chip-active {
+  border-color: var(--app-accent);
+  background: var(--app-accent);
+  color: var(--app-on-accent);
+}
+
+.theme-chip-active:hover {
+  color: var(--app-on-accent);
+  background: var(--app-accent-hover);
+  border-color: var(--app-accent-hover);
+}
+
+/* Preview swatches on chips */
+.theme-chip-black {
+  background: #2a2a2a;
+  color: #eee;
+  border-color: #444;
+}
+
+.theme-chip-white {
+  background: #fff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.theme-chip-purple {
+  background: #2f2245;
+  color: #e9d5ff;
+  border-color: #5b4575;
+}
+
+.theme-chip-magenta {
+  background: #351a2c;
+  color: #fce7f3;
+  border-color: #831843;
+}
+
+.theme-chip-ocean {
+  background: #1e293b;
+  color: #ccfbf1;
+  border-color: #0d9488;
+}
+
+.theme-chip-black.theme-chip-active,
+.theme-chip-white.theme-chip-active,
+.theme-chip-purple.theme-chip-active,
+.theme-chip-magenta.theme-chip-active,
+.theme-chip-ocean.theme-chip-active {
+  box-shadow: 0 0 0 2px var(--app-bg), 0 0 0 4px var(--app-accent);
+}

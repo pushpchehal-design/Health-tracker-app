@@ -181,6 +181,24 @@ npx supabase functions deploy analyze-health-report
 3. **Wait for analysis** - Usually takes 10-30 seconds
 4. **Check logs** - If something fails, logs show the error
 
+## Optional: Claude (Anthropic) for Ayurveda recommendations
+
+Report **parsing / vision** in `analyze-health-report` still uses **Gemini** today. The **`generate-ayurveda-recommendations`** function can use **Claude** for the final text while **RAG query embeddings stay on Gemini** (`gemini-embedding-001`).
+
+1. Create an API key in the [Anthropic Console](https://console.anthropic.com/).
+2. Add Supabase Edge Function secrets (same as `GEMINI_API_KEY`):
+
+   ```bash
+   npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-api03-...
+   npx supabase secrets set AYURVEDA_LLM_PROVIDER=claude
+   ```
+
+   Optional: `CLAUDE_MODEL` (default `claude-3-5-haiku-20241022`).
+
+3. Redeploy: `npx supabase functions deploy generate-ayurveda-recommendations`
+
+Unset `AYURVEDA_LLM_PROVIDER` or set it to `gemini` to use Gemini for that step again.
+
 ## 🎉 You're Done!
 
 Your health tracker now has **FREE AI-powered report analysis**! 

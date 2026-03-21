@@ -8,13 +8,16 @@ export const ANALYSIS_TIERS = [
     id: TIER_BASIC,
     title: 'Ayurvedic remedies only',
     priceInr: 89,
+    /** Shown struck through next to sale price (marketing). */
+    listPriceInr: 289,
     pricePaise: 8900,
-    blurb: 'Database remedies for each abnormal parameter.',
+    blurb: 'Ayurvedic remedies for each abnormal parameter.',
   },
   {
     id: TIER_FULL,
     title: 'Full Ayurveda analysis',
     priceInr: 249,
+    listPriceInr: 549,
     pricePaise: 24900,
     blurb: 'Remedies + dietary recommendations + lifestyle modifications. With AI on: personalized notes as well.',
   },

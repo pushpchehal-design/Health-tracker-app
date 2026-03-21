@@ -4,9 +4,11 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { extractLabReportJsonWithClaude } from '../_shared/claude.ts'
 // unpdf is imported dynamically inside the handler to avoid BOOT_ERROR at cold start
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
+const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') ?? ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
@@ -16,6 +18,8 @@ interface AnalysisRequest {
   fileType: string
   reportId: string
   useAiFallback?: boolean
+  /** `gemini` | `claude` — which provider reads the file when AI is on */
+  llmProvider?: string
 }
 
 interface RefRow {
@@ -806,8 +810,18 @@ serve(async (req) => {
     
     const { fileUrl, filePath, fileType, reportId, useAiFallback = false } = requestBody
     const useAi = useAiFallback === true
-    console.log('Request body parsed:', { filePath, fileType, reportId, hasFileUrl: !!fileUrl, useAiFallback, useAi })
-    console.log(useAi ? 'User requested AI: will use Gemini for extraction (exact names & all values).' : 'AI not requested: no-AI parser may run if PDF text is extracted.')
+    const rawReportLlm = String(
+      (requestBody as AnalysisRequest).llmProvider ??
+        (requestBody as Record<string, unknown>).llm_provider ??
+        '',
+    ).toLowerCase()
+    const reportLlm = rawReportLlm === 'claude' ? 'claude' : 'gemini'
+    console.log('Request body parsed:', { filePath, fileType, reportId, hasFileUrl: !!fileUrl, useAiFallback, useAi, reportLlm })
+    console.log(
+      useAi
+        ? `User requested AI: will use ${reportLlm} for file extraction.`
+        : 'AI not requested: no-AI parser may run if PDF text is extracted.',
+    )
 
     // Test Gemini API connectivity (no file needed)
     const bodyAny = requestBody as Record<string, unknown>
@@ -940,7 +954,7 @@ serve(async (req) => {
     // When user has turned AI ON: always use Gemini (skip no-AI parser). Ensures correct names & values from report.
     if (useAi) {
       useTextAnalysis = false
-      console.log('AI enabled: forcing Gemini path. No-AI parser will NOT run.')
+      console.log('AI enabled: forcing vision AI path. No-AI parser will NOT run.')
     }
     
     // If text extraction failed or not a PDF, we will use Gemini (API cost).
@@ -948,7 +962,9 @@ serve(async (req) => {
     let mimeType = 'image/jpeg'
     
     if (!useTextAnalysis) {
-      console.log('=== API PATH: No extractable text (scanned PDF or image). Gemini 2.5 Flash will be called - this uses your paid quota. ===')
+      console.log(
+        `=== API PATH: No extractable text. ${useAi ? (reportLlm === 'claude' ? 'Claude' : 'Gemini') + ' will read the file' : 'Turn AI on for cloud vision (Gemini or Claude)'} ===`,
+      )
       
       // Warn if file is large (close to limit) - may cause response truncation
       if (fileSizeMB > 10) {
@@ -1088,12 +1104,17 @@ serve(async (req) => {
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       )
     }
-    if (!GEMINI_API_KEY) {
-      throw new Error('PDF text could not be extracted (scanned PDF or image?). Add values manually, or set GEMINI_API_KEY for AI fallback.')
+    if (reportLlm === 'claude') {
+      if (!ANTHROPIC_API_KEY) {
+        throw new Error(
+          'You selected Claude for report analysis, but ANTHROPIC_API_KEY is not set. Add it in Supabase → Edge Functions → Secrets, or choose Gemini in the sidebar.',
+        )
+      }
+    } else if (!GEMINI_API_KEY) {
+      throw new Error(
+        'Gemini is selected for report analysis but GEMINI_API_KEY is missing or invalid. Fix the key in Supabase secrets, or select Claude.',
+      )
     }
-
-    const CATEGORIES = ['Heart', 'Liver', 'Kidney', 'Blood', 'Metabolic', 'Thyroid', 'Electrolytes', 'Urine']
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`
 
     // Fetch reference parameters once so we can guide the model and validate output (accuracy + cost control)
     const { data: refRowsAll, error: refErr } = await supabase
@@ -1102,16 +1123,10 @@ serve(async (req) => {
     if (refErr) {
       console.error('Failed to fetch blood_marker_reference:', refErr)
     }
-    const refByCategory: Record<string, RefRow[]> = {}
-    for (const r of refRowsAll || []) {
-      const row = { name: r.name, aliases: r.aliases || [], unit: r.unit || '', normal_low: Number(r.normal_low), normal_high: Number(r.normal_high), category: r.category || 'Other' }
-      if (!refByCategory[row.category]) refByCategory[row.category] = []
-      refByCategory[row.category].push(row)
-    }
 
     const analysisResult: { categories: { [key: string]: any } } = { categories: {} }
 
-    // Single Gemini call: extract EVERY parameter from the report with EXACT names and values as printed. No per-category calls that drop params or substitute names.
+    // Single model call: extract EVERY parameter from the report with EXACT names and values as printed.
     const fullPrompt = `You are reading a health lab report (image/PDF). Your job is to list EVERY lab parameter that appears on the report.
 
 RULES - FOLLOW EXACTLY:
@@ -1126,45 +1141,92 @@ Return ONLY valid JSON (no markdown, no explanation):
 
 Example: {"p":[{"n":"WBC -Total Leucocytes Count","v":"7.55 10^3/µL","r":"4.5-11.0","s":"n"},{"n":"RBC","v":"4.82 million/mcL","r":"4.2-5.4","s":"n"}]}`
 
-    const payload: any = {
-      contents: [{
-        parts: useTextAnalysis
-          ? [{ text: `${fullPrompt}\n\nHealth Report Text:\n${extractedText}` }]
-          : [
-              { text: fullPrompt },
-              { inline_data: { mime_type: mimeType, data: base64 } }
-            ]
-      }],
-      generationConfig: {
-        temperature: 0,
-        maxOutputTokens: 16384,
-        topP: 0.95,
-        topK: 40
-      }
-    }
-
-    console.log('Calling Gemini once to extract ALL parameters (exact names and values from report)')
-    const res = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-
-    if (!res.ok) {
-      console.error('Gemini error:', await res.text())
-      throw new Error('AI analysis failed. Please try again or add values manually.')
-    }
-
-    const data = await res.json()
     let text = ''
-    if (data.candidates?.[0]?.content?.parts) {
-      for (const part of data.candidates[0].content.parts) {
-        if (part.text) text += part.text
+    if (reportLlm === 'claude') {
+      if (!base64) {
+        throw new Error('Missing file data for Claude. Try re-uploading the report.')
       }
-    }
+      const media =
+        mimeType === 'application/pdf'
+          ? { kind: 'pdf' as const, base64 }
+          : {
+              kind: 'image' as const,
+              base64,
+              mediaType: (mimeType === 'image/png' ? 'image/png' : 'image/jpeg') as 'image/png' | 'image/jpeg',
+            }
+      console.log('Calling Claude to extract ALL parameters from report file')
+      text = await extractLabReportJsonWithClaude({
+        apiKey: ANTHROPIC_API_KEY,
+        prompt: fullPrompt,
+        media,
+        maxTokens: 16384,
+      })
+    } else {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`
+      const payload: any = {
+        contents: [{
+          parts: useTextAnalysis
+            ? [{ text: `${fullPrompt}\n\nHealth Report Text:\n${extractedText}` }]
+            : [
+                { text: fullPrompt },
+                { inline_data: { mime_type: mimeType, data: base64 } }
+              ]
+        }],
+        generationConfig: {
+          temperature: 0,
+          maxOutputTokens: 16384,
+          topP: 0.95,
+          topK: 40
+        }
+      }
 
-    if (!text) {
-      throw new Error('AI returned no content. Please try again or add values manually.')
+      console.log('Calling Gemini once to extract ALL parameters (exact names and values from report)')
+      const res = await fetch(geminiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      const resText = await res.text()
+      if (!res.ok) {
+        console.error('Gemini HTTP error:', res.status, resText.slice(0, 2000))
+        let detail = resText.slice(0, 500)
+        try {
+          const j = JSON.parse(resText) as { error?: { message?: string; status?: string; code?: number } }
+          if (j?.error?.message) detail = j.error.message
+          if (j?.error?.status) detail = `${j.error.status}: ${detail}`
+        } catch {
+          /* use raw slice */
+        }
+        throw new Error(
+          `Gemini API error (${res.status}). ${detail} — Try again, use manual entry, or check quota/API key in Google AI Studio.`,
+        )
+      }
+
+      let data: any
+      try {
+        data = JSON.parse(resText)
+      } catch {
+        throw new Error('Gemini returned invalid JSON. Please try again or add values manually.')
+      }
+      if (data.candidates?.[0]?.content?.parts) {
+        for (const part of data.candidates[0].content.parts) {
+          if (part.text) text += part.text
+        }
+      }
+
+      if (!text) {
+        const finish = data.candidates?.[0]?.finishReason
+        const block = data.promptFeedback?.blockReason
+        const safety = data.candidates?.[0]?.safetyRatings
+        console.error('Gemini empty content:', { finish, block, safety, keys: Object.keys(data || {}) })
+        const hint = block
+          ? `Prompt blocked (${block}). Try a different file or manual entry.`
+          : finish
+            ? `Model stopped (${finish}). Try again or add values manually.`
+            : 'No text in model response. Try again or add values manually.'
+        throw new Error(hint)
+      }
     }
 
     let jsonStr = text.replace(/```json?\s*/g, '').replace(/```/g, '').trim()
