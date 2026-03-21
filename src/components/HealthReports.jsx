@@ -991,17 +991,44 @@ function HealthReports({
         </div>
       )}
       {report.analysis_status === 'completed' && analyzingReportId !== report.id && (() => {
-        const sections = getSectionsByCategory(report)
+        const ayurvedaUnlocked =
+          report.ayurveda_tier === 'basic' || report.ayurveda_tier === 'full'
+        let sections = getSectionsByCategory(report)
+        if (!ayurvedaUnlocked) {
+          sections = sections
+            .map(({ category, params }) => ({
+              category,
+              params: params.filter((p) => p.status === 'abnormal'),
+            }))
+            .filter((s) => s.params.length > 0)
+        }
         if (sections.length === 0) {
           return (
             <div className="analysis-results analysis-results-empty">
-              <p>No parameters in this report.</p>
+              {!ayurvedaUnlocked && (
+                <div className="analysis-paywall-banner" role="status">
+                  <strong>Ayurveda analysis is not included yet.</strong> Remedies, dietary guidance, and lifestyle recommendations unlock after you choose a plan, pay (or apply a coupon), and run{' '}
+                  <strong>Generate Ayurveda analysis</strong> in the section above.
+                </div>
+              )}
+              <p>
+                {!ayurvedaUnlocked
+                  ? 'No abnormal parameters were flagged on this report. If everything is in range, you can still purchase an Ayurveda pass for personalized guidance.'
+                  : 'No parameters in this report.'}
+              </p>
             </div>
           )
         }
-        const showDietLifestyle = report.ayurveda_tier !== 'basic'
+        const showDietLifestyle = report.ayurveda_tier === 'full'
+        const showRemedyColumns = ayurvedaUnlocked
         return (
           <div className="analysis-results analysis-results-by-category">
+            {!ayurvedaUnlocked && (
+              <div className="analysis-paywall-banner" role="status">
+                <strong>Preview: abnormal findings only.</strong> Ayurvedic remedies, dietary recommendations, and lifestyle modifications are{' '}
+                <strong>not shown</strong> until you pay (or use an eligible coupon) and run <strong>Generate Ayurveda analysis</strong> above. This applies to uploaded reports and test data alike.
+              </div>
+            )}
             {report.ayurveda_tier === 'basic' && (
               <p className="analysis-tier-banner analysis-tier-banner-basic">
                 Showing <strong>remedies only</strong> (Basic plan). Upgrade to Full (₹249) for dietary and lifestyle columns on your next analysis.
@@ -1020,15 +1047,18 @@ function HealthReports({
                       <thead>
                         <tr>
                           <th>Parameter (value & normal range)</th>
-                          <th>Ayurvedic remedy</th>
-                          {showDietLifestyle && <th>Dietary recommendations</th>}
-                          {showDietLifestyle && <th>Lifestyle modifications</th>}
+                          {showRemedyColumns && <th>Ayurvedic remedy</th>}
+                          {showRemedyColumns && showDietLifestyle && <th>Dietary recommendations</th>}
+                          {showRemedyColumns && showDietLifestyle && <th>Lifestyle modifications</th>}
                         </tr>
                       </thead>
                       <tbody>
                         {params.map((p, idx) => {
                           const param = { name: p.name, value: p.value, normal_range: p.normal_range, status: p.status }
-                          const remedy = p.status === 'abnormal' ? getRemedyForParam(param, bloodMarkerReference, remedyLookup) : null
+                          const remedy =
+                            showRemedyColumns && p.status === 'abnormal'
+                              ? getRemedyForParam(param, bloodMarkerReference, remedyLookup)
+                              : null
                           return (
                             <tr key={idx} className={`report-format-row report-format-row-${p.status || 'normal'}`}>
                               <td className="report-format-param">
@@ -1037,11 +1067,13 @@ function HealthReports({
                                 {p.normal_range && <span className="report-param-range">Normal: {p.normal_range}</span>}
                                 {p.status === 'abnormal' && <span className="report-param-status-badge">Abnormal</span>}
                               </td>
-                              <td className="report-format-remedy">{remedy ? remedy.remedy_text : '—'}</td>
-                              {showDietLifestyle && (
+                              {showRemedyColumns && (
+                                <td className="report-format-remedy">{remedy ? remedy.remedy_text : '—'}</td>
+                              )}
+                              {showRemedyColumns && showDietLifestyle && (
                                 <td className="report-format-dietary">{remedy?.dietary_recommendations ?? '—'}</td>
                               )}
-                              {showDietLifestyle && (
+                              {showRemedyColumns && showDietLifestyle && (
                                 <td className="report-format-lifestyle">{remedy?.lifestyle_modification ?? '—'}</td>
                               )}
                             </tr>

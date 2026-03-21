@@ -1,4 +1,12 @@
-/** Anthropic Messages API — text completion only (no embeddings). */
+/** Anthropic Messages API — text completion only (no embeddings).
+ * Default model IDs must match https://docs.anthropic.com/en/docs/about-claude/models (retired IDs → 404).
+ */
+
+/** PDF + vision report extraction (override with CLAUDE_VISION_MODEL secret). */
+const DEFAULT_VISION_MODEL = 'claude-sonnet-4-20250514'
+
+/** Text-only e.g. Ayurveda (override with CLAUDE_MODEL). Use a current id from Anthropic if this 404s. */
+const DEFAULT_TEXT_MODEL = 'claude-3-5-haiku-20241022'
 
 export type ClaudeReportMedia =
   | { kind: 'pdf'; base64: string }
@@ -17,7 +25,7 @@ export async function extractLabReportJsonWithClaude(opts: {
   const model =
     Deno.env.get('CLAUDE_VISION_MODEL') ||
     Deno.env.get('CLAUDE_MODEL') ||
-    'claude-3-5-sonnet-20241022'
+    DEFAULT_VISION_MODEL
 
   const content: unknown[] = []
   if (opts.media.kind === 'pdf') {
@@ -64,7 +72,11 @@ export async function extractLabReportJsonWithClaude(opts: {
     } catch {
       /* keep slice */
     }
-    throw new Error(`Claude API error (${res.status}). ${detail}`)
+    const hint =
+      res.status === 404
+        ? ' If the model was retired, set secret CLAUDE_VISION_MODEL to an ID from Anthropic’s model docs.'
+        : ''
+    throw new Error(`Claude API error (${res.status}). ${detail}${hint}`)
   }
 
   let j: { content?: Array<{ type?: string; text?: string }> }
@@ -97,7 +109,7 @@ export async function completeWithClaude(opts: {
   const model =
     opts.model ||
     Deno.env.get('CLAUDE_MODEL') ||
-    'claude-3-5-haiku-20241022'
+    DEFAULT_TEXT_MODEL
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
