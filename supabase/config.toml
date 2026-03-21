@@ -9,3 +9,6 @@ verify_jwt = false
 # Same as other functions: gateway JWT check can block invoke; we still validate session inside the function.
 [functions.create-razorpay-order]
 verify_jwt = false
+
+[functions.verify-razorpay-analysis-payment]
+verify_jwt = false

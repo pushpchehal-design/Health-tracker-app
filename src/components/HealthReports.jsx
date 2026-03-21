@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { analyzeHealthReport, generateAyurvedaRecommendations } from '../lib/aiService'
 import { formatDateDMY, formatDateTimeDMY } from '../utils/dateFormat'
+import { openRazorpayPay, verifyAnalysisPayment } from '../lib/razorpayCheckout'
+import { ANALYSIS_TIERS, TIER_BASIC, TIER_FULL } from '../lib/analysisTiers'
 import './HealthReports.css'
 
 const REPORT_CATEGORIES = ['Heart', 'Liver', 'Kidney', 'Blood', 'Metabolic', 'Electrolytes', 'Thyroid', 'Urine', 'Tumor Markers']
@@ -31,7 +33,7 @@ function getAnalysisPhaseLabel(elapsedSeconds) {
   return 'Generating analysis…'
 }
 
-function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChange }) {
+function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChange, user = null, userProfile = null }) {
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
   const [showUpload, setShowUpload] = useState(false)
@@ -60,6 +62,9 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
   const [ayurvedaReportId, setAyurvedaReportId] = useState('')
   const [generatingAyurveda, setGeneratingAyurveda] = useState(false)
   const [ayurvedaMessage, setAyurvedaMessage] = useState('')
+  const [analysisTierChoice, setAnalysisTierChoice] = useState(TIER_BASIC)
+  const [entitlements, setEntitlements] = useState([])
+  const [ayurvedaPayLoading, setAyurvedaPayLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('analysis') // 'analysis' | 'archived'
   const [selectedReportIdForView, setSelectedReportIdForView] = useState(null) // single report to show in Report Analysis tab
   const [archivedExpandedMembers, setArchivedExpandedMembers] = useState({}) // { memberId: true } for expanded sections
@@ -67,9 +72,32 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
   const [remedyLookup, setRemedyLookup] = useState([])
   const [analysisCompleteReportId, setAnalysisCompleteReportId] = useState(null) // show "Analysis Complete, Click here" when set
 
+  const fetchEntitlements = useCallback(async () => {
+    if (!userId || !supabase) {
+      setEntitlements([])
+      return
+    }
+    try {
+      const { data, error } = await supabase
+        .from('analysis_entitlements')
+        .select('id, tier, used_at, created_at')
+        .is('used_at', null)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      setEntitlements(data || [])
+    } catch (e) {
+      console.warn('Could not load analysis entitlements (run supabase-analysis-entitlements.sql if missing):', e?.message || e)
+      setEntitlements([])
+    }
+  }, [userId])
+
   useEffect(() => {
     loadReports()
   }, [userId])
+
+  useEffect(() => {
+    fetchEntitlements()
+  }, [fetchEntitlements])
 
   useEffect(() => {
     let cancelled = false
@@ -326,31 +354,110 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
     setError('')
   }
 
+  const unusedCreditForSelectedTier = entitlements.some((e) => e.tier === analysisTierChoice)
+
+  const handlePayForAyurvedaAnalysis = async () => {
+    if (!supabase || !userId) return
+    setAyurvedaPayLoading(true)
+    setAyurvedaMessage('')
+    try {
+      const paymentResponse = await openRazorpayPay({
+        supabase,
+        tier: analysisTierChoice,
+        userEmail: user?.email,
+        userName: userProfile?.full_name || userProfile?.name || user?.user_metadata?.full_name || '',
+      })
+      if (!paymentResponse) {
+        setAyurvedaMessage('Checkout closed without payment.')
+        return
+      }
+      await verifyAnalysisPayment(supabase, paymentResponse)
+      setAyurvedaMessage(
+        `Payment confirmed for ${analysisTierChoice === TIER_FULL ? 'Full analysis (₹249)' : 'Remedies only (₹89)'}. You can run Generate once.`
+      )
+      await fetchEntitlements()
+    } catch (err) {
+      setAyurvedaMessage('Error: ' + (err?.message || 'Payment failed'))
+    } finally {
+      setAyurvedaPayLoading(false)
+    }
+  }
+
   const handleGenerateAyurveda = async () => {
     if (!userId || !ayurvedaReportId || generatingAyurveda) return
     setAyurvedaMessage('')
+
+    const { data: entRow, error: entErr } = await supabase
+      .from('analysis_entitlements')
+      .select('id')
+      .eq('tier', analysisTierChoice)
+      .is('used_at', null)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+
+    if (entErr || !entRow?.id) {
+      setAyurvedaMessage('Error: Pay for the selected plan first, then generate.')
+      return
+    }
+    const entitlementId = entRow.id
+
     setGeneratingAyurveda(true)
     setSelectedReportIdForView(ayurvedaReportId)
     setAnalysisElapsedSeconds(0)
     setAnalyzingReportId(ayurvedaReportId)
     setAnalysisStartTime(Date.now())
     try {
-      // Same 15s phased UX for AI on and off — previously AI off skipped this and showed the report immediately
       await new Promise((r) => setTimeout(r, ANALYSIS_MIN_SECONDS * 1000))
       setAnalyzingReportId(null)
       setAnalysisStartTime(null)
 
-      if (!aiEnabled) {
-        setAyurvedaMessage(
-          'Remedies from database are shown below each abnormal parameter. Turn on AI for personalized recommendations.'
-        )
+      const tier = analysisTierChoice
+
+      if (tier === TIER_BASIC) {
+        const { error: upErr } = await supabase
+          .from('health_reports')
+          .update({ ayurveda_tier: 'basic' })
+          .eq('id', ayurvedaReportId)
+          .eq('user_id', userId)
+        if (upErr) throw upErr
+        const { error: useErr } = await supabase
+          .from('analysis_entitlements')
+          .update({ used_at: new Date().toISOString() })
+          .eq('id', entitlementId)
+          .is('used_at', null)
+        if (useErr) throw useErr
+        setAyurvedaMessage('Ayurvedic remedies (database) are shown for abnormal parameters. Dietary & lifestyle are not included in this plan.')
+        setAnalysisCompleteReportId(ayurvedaReportId)
+        await loadReports()
+        await fetchEntitlements()
         return
       }
 
-      await generateAyurvedaRecommendations(ayurvedaReportId, userId)
-      setAyurvedaMessage('Recommendations generated. Scroll to the report to see "What to do & remedies".')
+      // Full tier
+      if (aiEnabled) {
+        await generateAyurvedaRecommendations(ayurvedaReportId, userId)
+      }
+      const { error: upErr2 } = await supabase
+        .from('health_reports')
+        .update({ ayurveda_tier: 'full' })
+        .eq('id', ayurvedaReportId)
+        .eq('user_id', userId)
+      if (upErr2) throw upErr2
+      const { error: useErr2 } = await supabase
+        .from('analysis_entitlements')
+        .update({ used_at: new Date().toISOString() })
+        .eq('id', entitlementId)
+        .is('used_at', null)
+      if (useErr2) throw useErr2
+      setAyurvedaMessage(
+        aiEnabled
+          ? 'Full analysis complete. Scroll to the report for remedies, dietary, lifestyle, and AI notes where available.'
+          : 'Full analysis layout shown: remedies, dietary, and lifestyle from the database. Turn on AI for personalized recommendations.'
+      )
       setAnalysisCompleteReportId(ayurvedaReportId)
       await loadReports()
+      await fetchEntitlements()
     } catch (err) {
       setAnalyzingReportId(null)
       setAnalysisStartTime(null)
@@ -861,8 +968,14 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
             </div>
           )
         }
+        const showDietLifestyle = report.ayurveda_tier !== 'basic'
         return (
           <div className="analysis-results analysis-results-by-category">
+            {report.ayurveda_tier === 'basic' && (
+              <p className="analysis-tier-banner analysis-tier-banner-basic">
+                Showing <strong>remedies only</strong> (Basic plan). Upgrade to Full (₹249) for dietary and lifestyle columns on your next analysis.
+              </p>
+            )}
             {sections.map(({ category, params }) => {
               const icon = CATEGORY_ICONS[category] || '•'
               return (
@@ -877,8 +990,8 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
                         <tr>
                           <th>Parameter (value & normal range)</th>
                           <th>Ayurvedic remedy</th>
-                          <th>Dietary recommendations</th>
-                          <th>Lifestyle modifications</th>
+                          {showDietLifestyle && <th>Dietary recommendations</th>}
+                          {showDietLifestyle && <th>Lifestyle modifications</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -894,8 +1007,12 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
                                 {p.status === 'abnormal' && <span className="report-param-status-badge">Abnormal</span>}
                               </td>
                               <td className="report-format-remedy">{remedy ? remedy.remedy_text : '—'}</td>
-                              <td className="report-format-dietary">{remedy?.dietary_recommendations ?? '—'}</td>
-                              <td className="report-format-lifestyle">{remedy?.lifestyle_modification ?? '—'}</td>
+                              {showDietLifestyle && (
+                                <td className="report-format-dietary">{remedy?.dietary_recommendations ?? '—'}</td>
+                              )}
+                              {showDietLifestyle && (
+                                <td className="report-format-lifestyle">{remedy?.lifestyle_modification ?? '—'}</td>
+                              )}
                             </tr>
                           )
                         })}
@@ -1009,9 +1126,55 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
       {activeTab === 'analysis' && (
         <>
       <div className="ayurveda-generate-section">
-        <h3>Generate Ayurveda analysis for existing report</h3>
-        <p className="ayurveda-generate-hint">Select family member and report. With AI on: personalized recommendations. With AI off: remedies from database shown under each abnormal parameter.</p>
-        <p className="ayurveda-context-hint">Recommendations consider pre-existing conditions and family history from the profile.</p>
+        <h3>Ayurveda analysis (paid)</h3>
+        <p className="ayurveda-generate-hint">
+          Choose a plan, pay with Razorpay, then run <strong>Generate</strong> once per payment. Full plan includes dietary & lifestyle columns; Basic shows remedies only.
+        </p>
+        <p className="ayurveda-context-hint">With AI on, Full plan also runs personalized recommendations. Recommendations use profile context when AI is enabled.</p>
+
+        <div className="analysis-tier-cards" role="radiogroup" aria-label="Analysis plan">
+          {ANALYSIS_TIERS.map((t) => (
+            <label
+              key={t.id}
+              className={`analysis-tier-card ${analysisTierChoice === t.id ? 'analysis-tier-card-selected' : ''}`}
+            >
+              <input
+                type="radio"
+                name="analysis-tier"
+                value={t.id}
+                checked={analysisTierChoice === t.id}
+                onChange={() => {
+                  setAnalysisTierChoice(t.id)
+                  setAyurvedaMessage('')
+                }}
+              />
+              <span className="analysis-tier-title">{t.title}</span>
+              <span className="analysis-tier-price">₹{t.priceInr}</span>
+              <span className="analysis-tier-blurb">{t.blurb}</span>
+            </label>
+          ))}
+        </div>
+
+        <p className="analysis-credit-status">
+          {unusedCreditForSelectedTier ? (
+            <span className="analysis-credit-ok">You have an unused credit for this plan — you can generate once.</span>
+          ) : (
+            <span className="analysis-credit-missing">No unused credit for this plan — pay below first.</span>
+          )}
+        </p>
+
+        <div className="ayurveda-pay-row">
+          <button
+            type="button"
+            onClick={handlePayForAyurvedaAnalysis}
+            disabled={ayurvedaPayLoading}
+            className="upload-btn ayurveda-pay-btn"
+          >
+            {ayurvedaPayLoading ? 'Opening payment…' : `Pay ₹${ANALYSIS_TIERS.find((x) => x.id === analysisTierChoice)?.priceInr ?? '—'}`}
+          </button>
+          <span className="ayurveda-pay-note">Secure checkout via Razorpay (test cards in test mode).</span>
+        </div>
+
         <div className="ayurveda-generate-form">
           <div className="form-group">
             <label htmlFor="ayurveda-member">Family member</label>
@@ -1055,8 +1218,14 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
           <button
             type="button"
             onClick={handleGenerateAyurveda}
-            disabled={!ayurvedaReportId || generatingAyurveda || reportsForAyurveda.length === 0}
+            disabled={
+              !ayurvedaReportId ||
+              generatingAyurveda ||
+              reportsForAyurveda.length === 0 ||
+              !unusedCreditForSelectedTier
+            }
             className="upload-btn ayurveda-generate-btn"
+            title={!unusedCreditForSelectedTier ? 'Pay for the selected plan first' : ''}
           >
             {generatingAyurveda ? 'Generating...' : 'Generate Ayurveda analysis'}
           </button>

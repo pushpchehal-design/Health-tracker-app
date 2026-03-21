@@ -30,7 +30,7 @@ export function loadRazorpayScript() {
   })
 }
 
-/** Default test amount ₹100 — override with VITE_RAZORPAY_AMOUNT_PAISE in .env */
+/** @deprecated amounts come from tier server-side; kept for any legacy callers */
 export function getDefaultPayAmountPaise() {
   const raw = import.meta.env.VITE_RAZORPAY_AMOUNT_PAISE
   if (raw != null && raw !== '') {
@@ -75,15 +75,18 @@ export async function parseSupabaseFunctionError(error) {
 /**
  * @param {object} opts
  * @param {import('@supabase/supabase-js').SupabaseClient} opts.supabase
- * @param {number} opts.amountPaise
+ * @param {'basic'|'full'} opts.tier - server maps to ₹89 / ₹249
  * @param {string} [opts.userEmail]
  * @param {string} [opts.userName]
  * @param {function} [opts.onSuccess] - (response) => void — razorpay_payment_id, order_id, signature
  * @param {function} [opts.onDismiss] - modal closed without pay
  */
 export async function openRazorpayPay(opts) {
-  const { supabase, amountPaise, userEmail, userName, onSuccess, onDismiss } = opts
+  const { supabase, tier, userEmail, userName, onSuccess, onDismiss } = opts
   if (!supabase) throw new Error('Not signed in (Supabase client missing)')
+  if (tier !== 'basic' && tier !== 'full') {
+    throw new Error('Invalid analysis tier')
+  }
 
   const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession()
   if (refreshErr) {
@@ -109,7 +112,7 @@ export async function openRazorpayPay(opts) {
       Authorization: `Bearer ${accessToken}`,
       apikey: anonKey,
     },
-    body: JSON.stringify({ amount: amountPaise, currency: 'INR' }),
+    body: JSON.stringify({ tier }),
   })
 
   const data = await orderRes.json().catch(() => ({}))
@@ -140,7 +143,7 @@ export async function openRazorpayPay(opts) {
       amount,
       currency: currency || 'INR',
       name: 'Health Tracker',
-      description: 'Payment',
+      description: tier === 'full' ? 'Full Ayurveda analysis' : 'Ayurvedic remedies',
       order_id: orderId,
       handler(response) {
         if (onSuccess) onSuccess(response)
@@ -169,4 +172,51 @@ export async function openRazorpayPay(opts) {
       reject(e)
     }
   })
+}
+
+/**
+ * Confirm payment server-side and create analysis_entitlements row.
+ * @param {import('@supabase/supabase-js').SupabaseClient} supabase
+ * @param {{ razorpay_order_id?: string, razorpay_payment_id?: string, razorpay_signature?: string }} paymentResponse - Razorpay handler payload
+ */
+export async function verifyAnalysisPayment(supabase, paymentResponse) {
+  const orderId = paymentResponse?.razorpay_order_id ?? paymentResponse?.order_id
+  const paymentId = paymentResponse?.razorpay_payment_id ?? paymentResponse?.payment_id
+  const signature = paymentResponse?.razorpay_signature ?? paymentResponse?.signature
+  if (!orderId || !paymentId || !signature) {
+    throw new Error('Missing payment confirmation fields')
+  }
+
+  const { data: refreshData } = await supabase.auth.refreshSession()
+  const session = refreshData?.session ?? (await supabase.auth.getSession()).data.session
+  const accessToken = session?.access_token
+  if (!accessToken) throw new Error('Please sign in again.')
+
+  const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL || '').replace(/\/$/, '')
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !anonKey) throw new Error('Missing Supabase configuration.')
+
+  const res = await fetch(`${supabaseUrl}/functions/v1/verify-razorpay-analysis-payment`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+      apikey: anonKey,
+    },
+    body: JSON.stringify({
+      razorpay_order_id: orderId,
+      razorpay_payment_id: paymentId,
+      razorpay_signature: signature,
+    }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const errText =
+      typeof data?.error === 'string' ? data.error : data?.message || `Verification failed (${res.status})`
+    throw new Error(errText)
+  }
+  if (!data.ok) {
+    throw new Error(data.error || 'Verification failed')
+  }
+  return data
 }

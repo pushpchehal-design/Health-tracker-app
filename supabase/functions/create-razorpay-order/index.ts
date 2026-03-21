@@ -1,8 +1,7 @@
-// Edge Function: Create a Razorpay order (server-side only — uses Key Secret).
-// POST body: { amount: number }  // amount in smallest currency unit (INR = paise), e.g. 9900 = ₹99
-// Optional: { currency?: string, receipt?: string }  receipt max 40 chars for Razorpay
+// Edge Function: Create Razorpay order for Ayurveda analysis tier (amount fixed server-side).
+// POST body: { tier: "basic" | "full" }  — basic ₹89 (8900 paise), full ₹249 (24900 paise)
 //
-// Requires: Authorization: Bearer <user_jwt> and apikey header (Supabase client default).
+// Requires: Authorization: Bearer <user_jwt>, apikey header.
 // Secrets: RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -13,6 +12,11 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '
 const RAZORPAY_KEY_ID = Deno.env.get('RAZORPAY_KEY_ID') ?? ''
 const RAZORPAY_KEY_SECRET = Deno.env.get('RAZORPAY_KEY_SECRET') ?? ''
 
+const TIER_AMOUNTS_PAISE: Record<string, number> = {
+  basic: 8900, // ₹89 — remedies only
+  full: 24900, // ₹249 — remedies + dietary + lifestyle (+ AI if enabled in app)
+}
+
 function getAnonKey(req: Request): string {
   return Deno.env.get('SUPABASE_ANON_KEY') ?? req.headers.get('apikey') ?? ''
 }
@@ -22,9 +26,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
-
-/** Max order amount in paise (₹5,00,000) — adjust for your product */
-const MAX_AMOUNT_PAISE = 50_000_000
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -58,7 +59,6 @@ serve(async (req) => {
       })
     }
 
-    // Validate user JWT with service role (avoids "Invalid JWT" quirks from anon client on Edge)
     if (!SUPABASE_SERVICE_ROLE_KEY) {
       return new Response(JSON.stringify({ error: 'Server misconfiguration: missing SUPABASE_SERVICE_ROLE_KEY' }), {
         status: 500,
@@ -80,30 +80,29 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}))
-    const amountRaw = body.amount
-    const currency = typeof body.currency === 'string' && body.currency.length === 3 ? body.currency.toUpperCase() : 'INR'
-    let receipt = typeof body.receipt === 'string' ? body.receipt.slice(0, 40) : `ht_${userId.slice(0, 8)}_${Date.now()}`
-
-    const amount = typeof amountRaw === 'number' ? Math.floor(amountRaw) : parseInt(String(amountRaw), 10)
-    if (!Number.isFinite(amount) || amount < 100) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid amount. Send integer paise (INR), minimum 100 (₹1).' }),
-        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      )
-    }
-    if (amount > MAX_AMOUNT_PAISE) {
-      return new Response(JSON.stringify({ error: 'Amount exceeds allowed maximum.' }), {
+    const tierRaw = typeof body.tier === 'string' ? body.tier.toLowerCase().trim() : ''
+    const tier = tierRaw === 'basic' || tierRaw === 'full' ? tierRaw : ''
+    if (!tier) {
+      return new Response(JSON.stringify({ error: 'Invalid or missing tier. Use "basic" or "full".' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       })
     }
+
+    const amount = TIER_AMOUNTS_PAISE[tier]
+    const currency = 'INR'
+    const receipt = `ht_${tier}_${userId.slice(0, 8)}_${Date.now()}`.slice(0, 40)
 
     const authString = btoa(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`)
     const orderPayload = {
       amount,
       currency,
       receipt,
-      notes: { supabase_user_id: userId },
+      notes: {
+        supabase_user_id: userId,
+        tier,
+        product: 'ayurveda_analysis',
+      },
     }
 
     const rzRes = await fetch('https://api.razorpay.com/v1/orders', {
@@ -120,8 +119,7 @@ serve(async (req) => {
       console.error('Razorpay order error:', rzRes.status, rzJson)
       return new Response(
         JSON.stringify({
-          error: (rzJson as { error?: { description?: string; code?: string } })?.error?.description || 'Razorpay order failed',
-          code: (rzJson as { error?: { code?: string } })?.error?.code,
+          error: (rzJson as { error?: { description?: string } })?.error?.description || 'Razorpay order failed',
         }),
         { status: 502, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       )
@@ -142,6 +140,7 @@ serve(async (req) => {
         currency: order.currency ?? currency,
         keyId: RAZORPAY_KEY_ID,
         status: order.status,
+        tier,
       }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     )
