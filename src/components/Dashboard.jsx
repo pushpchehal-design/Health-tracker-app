@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { testGeminiConnection } from '../lib/aiService'
+import { openRazorpayPay, getDefaultPayAmountPaise } from '../lib/razorpayCheckout'
 import HealthReports from './HealthReports'
 import FamilyHealth from './FamilyHealth'
 import { RELATIONSHIP_OPTIONS, COMMON_AILMENTS, COMMON_ALLERGIES } from '../lib/profileConstants'
@@ -33,6 +34,8 @@ function Dashboard({ userId, userProfile, user }) {
   const [expandedMemberId, setExpandedMemberId] = useState(null)
   const [geminiTestStatus, setGeminiTestStatus] = useState(null) // { success, message, error }
   const [geminiTesting, setGeminiTesting] = useState(false)
+  const [payLoading, setPayLoading] = useState(false)
+  const [payMessage, setPayMessage] = useState(null) // { type: 'success'|'error', text: string }
 
   const handleAiToggle = () => {
     const next = !aiEnabled
@@ -50,6 +53,40 @@ function Dashboard({ userId, userProfile, user }) {
       setGeminiTestStatus({ success: false, error: err?.message || 'Test failed' })
     } finally {
       setGeminiTesting(false)
+    }
+  }
+
+  const handlePay = async () => {
+    if (!supabase) {
+      setPayMessage({ type: 'error', text: 'App is not connected.' })
+      return
+    }
+    setPayLoading(true)
+    setPayMessage(null)
+    const amountPaise = getDefaultPayAmountPaise()
+    try {
+      const result = await openRazorpayPay({
+        supabase,
+        amountPaise,
+        userEmail: user?.email,
+        userName: userProfile?.full_name || userProfile?.name || user?.user_metadata?.full_name || '',
+        onSuccess(response) {
+          const pid = response?.razorpay_payment_id
+          setPayMessage({
+            type: 'success',
+            text: pid
+              ? `Payment submitted. Payment ID: ${pid} (verify on server with webhook next).`
+              : 'Payment completed.',
+          })
+        },
+        onDismiss() {
+          setPayMessage({ type: 'error', text: 'Checkout closed without payment.' })
+        },
+      })
+    } catch (err) {
+      setPayMessage({ type: 'error', text: err?.message || 'Payment could not start.' })
+    } finally {
+      setPayLoading(false)
     }
   }
 
@@ -288,6 +325,21 @@ function Dashboard({ userId, userProfile, user }) {
               <span className="sidebar-value">{allMembers.length}</span>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={handlePay}
+            disabled={payLoading}
+            className="sidebar-pay-btn"
+            title={`Opens Razorpay (amount ₹${(getDefaultPayAmountPaise() / 100).toFixed(2)} — set VITE_RAZORPAY_AMOUNT_PAISE in .env to change)`}
+          >
+            {payLoading ? 'Opening payment…' : 'Pay'}
+          </button>
+          <p className="sidebar-pay-hint">Secure checkout via Razorpay. Use test card in test mode.</p>
+          {payMessage && (
+            <p className={`sidebar-pay-msg ${payMessage.type === 'success' ? 'success' : 'error'}`}>
+              {payMessage.text}
+            </p>
+          )}
         </div>
       </aside>
       <div className="dashboard-main">

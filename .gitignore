@@ -26,3 +26,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Supabase CLI local cache
+supabase/.temp/
+
+# Microsoft Office lock files
+~$*

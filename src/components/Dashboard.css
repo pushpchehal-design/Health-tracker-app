@@ -80,6 +80,50 @@
   color: #f87171;
 }
 
+.sidebar-pay-btn {
+  margin-top: 1rem;
+  width: 100%;
+  padding: 0.55rem 1rem;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+}
+
+.sidebar-pay-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.sidebar-pay-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.sidebar-pay-hint {
+  margin: 0.45rem 0 0 0;
+  font-size: 0.7rem;
+  color: #666;
+  line-height: 1.35;
+}
+
+.sidebar-pay-msg {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.sidebar-pay-msg.success {
+  color: #22c55a;
+}
+
+.sidebar-pay-msg.error {
+  color: #f87171;
+}
+
 .sidebar-account {
   display: flex;
   flex-direction: column;

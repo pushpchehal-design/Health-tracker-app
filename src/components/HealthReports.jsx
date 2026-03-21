@@ -20,6 +20,17 @@ const CATEGORY_ICONS = {
   Other: '•'
 }
 
+/** Three phases × 5s = 15s minimum before analysis results / backend call (Generate Ayurveda, Start Analysis). */
+const ANALYSIS_PHASE_SECONDS = 5
+const ANALYSIS_MIN_SECONDS = ANALYSIS_PHASE_SECONDS * 3
+
+function getAnalysisPhaseLabel(elapsedSeconds) {
+  const e = Math.max(0, Math.floor(Number(elapsedSeconds) || 0))
+  if (e < ANALYSIS_PHASE_SECONDS) return 'Reading data…'
+  if (e < ANALYSIS_PHASE_SECONDS * 2) return 'Analysing parameters…'
+  return 'Generating analysis…'
+}
+
 function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChange }) {
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
@@ -34,7 +45,6 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
   const [analyzingReportId, setAnalyzingReportId] = useState(null)
   const [analysisStartTime, setAnalysisStartTime] = useState(null)
   const [analysisElapsedSeconds, setAnalysisElapsedSeconds] = useState(0)
-  const ANALYSIS_MIN_SECONDS = 12
 
   const [showAddChoice, setShowAddChoice] = useState(false)
   const [showManualEntry, setShowManualEntry] = useState(false)
@@ -318,26 +328,32 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
 
   const handleGenerateAyurveda = async () => {
     if (!userId || !ayurvedaReportId || generatingAyurveda) return
-    if (!aiEnabled) {
-      setSelectedReportIdForView(ayurvedaReportId)
-      setAyurvedaMessage('Remedies from database are shown below each abnormal parameter. Turn on AI for personalized recommendations.')
-      return
-    }
     setAyurvedaMessage('')
     setGeneratingAyurveda(true)
     setSelectedReportIdForView(ayurvedaReportId)
+    setAnalysisElapsedSeconds(0)
     setAnalyzingReportId(ayurvedaReportId)
     setAnalysisStartTime(Date.now())
-    const delayMs = ANALYSIS_MIN_SECONDS * 1000
-    await new Promise((r) => setTimeout(r, delayMs))
-    setAnalyzingReportId(null)
-    setAnalysisStartTime(null)
     try {
+      // Same 15s phased UX for AI on and off — previously AI off skipped this and showed the report immediately
+      await new Promise((r) => setTimeout(r, ANALYSIS_MIN_SECONDS * 1000))
+      setAnalyzingReportId(null)
+      setAnalysisStartTime(null)
+
+      if (!aiEnabled) {
+        setAyurvedaMessage(
+          'Remedies from database are shown below each abnormal parameter. Turn on AI for personalized recommendations.'
+        )
+        return
+      }
+
       await generateAyurvedaRecommendations(ayurvedaReportId, userId)
       setAyurvedaMessage('Recommendations generated. Scroll to the report to see "What to do & remedies".')
       setAnalysisCompleteReportId(ayurvedaReportId)
       await loadReports()
     } catch (err) {
+      setAnalyzingReportId(null)
+      setAnalysisStartTime(null)
       setAyurvedaMessage('Error: ' + (err?.message || 'Failed to generate'))
     } finally {
       setGeneratingAyurveda(false)
@@ -601,7 +617,7 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
       }
       console.log('Status updated to processing')
 
-      // Show "Analysing data..." for at least 12 seconds, then call the backend
+      // Three 5s phases (15s total) before calling the backend
       await new Promise((resolve) => setTimeout(resolve, ANALYSIS_MIN_SECONDS * 1000))
 
       // Call AI analysis via Supabase Edge Function
@@ -825,11 +841,13 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
       )}
       {(report.analysis_status === 'processing' || (report.analysis_status === 'completed' && analyzingReportId === report.id)) && (
         <div className="analyzing">
-          <p className="analyzing-message">Analysing data & generating recommendations…</p>
+          <p className="analyzing-message">{getAnalysisPhaseLabel(analysisElapsedSeconds)}</p>
           {analyzingReportId === report.id && (
             <div className="analyzing-timer" aria-live="polite">
               <span className="analyzing-clock">⏱</span>
-              <span>{analysisElapsedSeconds}s</span>
+              <span>
+                {analysisElapsedSeconds}s / {ANALYSIS_MIN_SECONDS}s
+              </span>
             </div>
           )}
         </div>
@@ -924,10 +942,12 @@ function HealthReports({ userId, familyMembers, aiEnabled = false, onReportsChan
         <h2>Health Reports & Analysis</h2>
         {analyzingReportId && (
           <div className="analyzing-global-banner">
-            <p className="analyzing-message">Analysing data & generating recommendations…</p>
+            <p className="analyzing-message">{getAnalysisPhaseLabel(analysisElapsedSeconds)}</p>
             <div className="analyzing-timer" aria-live="polite">
               <span className="analyzing-clock">⏱</span>
-              <span>{analysisElapsedSeconds}s</span>
+              <span>
+                {analysisElapsedSeconds}s / {ANALYSIS_MIN_SECONDS}s
+              </span>
             </div>
           </div>
         )}
