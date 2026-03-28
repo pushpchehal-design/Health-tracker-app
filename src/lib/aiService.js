@@ -10,11 +10,11 @@ import { supabase } from './supabase'
  * @param {string} fileType - Type of file (pdf, docx, image)
  * @param {string} reportId - ID of the health report record
  * @param {boolean} useAiFallback - If true, use AI when PDF text cannot be extracted (scans/images). If false, no API calls.
- * @param {{ llmProvider?: 'gemini' | 'claude' }} [opts] - Which provider reads the file when AI is on (default gemini).
+ * @param {{ llmProvider?: 'gemini' | 'claude' }} [opts] - Which provider reads the file when AI is on (default claude).
  * @returns {Promise<Object>} Analysis results
  */
 export async function analyzeHealthReport(fileUrl, filePath, fileType, reportId, useAiFallback = false, opts = {}) {
-  const llmProvider = opts.llmProvider === 'claude' ? 'claude' : 'gemini'
+  const llmProvider = opts.llmProvider === 'gemini' ? 'gemini' : 'claude'
   try {
     if (!reportId) {
       throw new Error('Report ID is required for analysis')
@@ -170,15 +170,15 @@ export async function testGeminiConnection() {
 }
 
 /**
- * Generate Ayurveda recommendations for an existing report (RAG + Gemini or Claude).
+ * Generate Ayurveda recommendations for an existing report (RAG + Claude by default).
  * Uses Supabase client invoke so auth (session JWT or anon) is sent correctly.
  * @param {string} reportId - Health report ID
  * @param {string} userId - Current user ID (for auth)
- * @param {{ llmProvider?: 'gemini' | 'claude' }} [opts] - Text model for this request (embeddings always Gemini server-side)
+ * @param {{ llmProvider?: 'gemini' | 'claude' }} [opts] - Text model for this request (server may use embeddings as configured)
  * @returns {Promise<{ success: boolean, recommendations?: string, error?: string }>}
  */
 export async function generateAyurvedaRecommendations(reportId, userId, opts = {}) {
-  const llmProvider = opts.llmProvider === 'claude' ? 'claude' : 'gemini'
+  const llmProvider = opts.llmProvider === 'gemini' ? 'gemini' : 'claude'
   const { data, error } = await supabase.functions.invoke('generate-ayurveda-recommendations', {
     body: { reportId, userId, llmProvider },
   })

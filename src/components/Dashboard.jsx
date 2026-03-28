@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { testGeminiConnection } from '../lib/aiService'
 import HealthReports from './HealthReports'
 import FamilyHealth from './FamilyHealth'
 import { RELATIONSHIP_OPTIONS, COMMON_AILMENTS, COMMON_ALLERGIES } from '../lib/profileConstants'
@@ -30,35 +29,12 @@ function Dashboard({ userId, userProfile, user }) {
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('members')
   const [aiEnabled, setAiEnabled] = useState(() => localStorage.getItem('health_tracker_ai_enabled') === 'true')
-  const [aiLlmProvider, setAiLlmProvider] = useState(() =>
-    localStorage.getItem('health_tracker_llm_provider') === 'claude' ? 'claude' : 'gemini'
-  )
   const [expandedMemberId, setExpandedMemberId] = useState(null)
-  const [geminiTestStatus, setGeminiTestStatus] = useState(null) // { success, message, error }
-  const [geminiTesting, setGeminiTesting] = useState(false)
 
   const handleAiToggle = () => {
     const next = !aiEnabled
     setAiEnabled(next)
     localStorage.setItem('health_tracker_ai_enabled', next ? 'true' : 'false')
-  }
-
-  const handleLlmProviderChange = (provider) => {
-    setAiLlmProvider(provider)
-    localStorage.setItem('health_tracker_llm_provider', provider)
-  }
-
-  const handleTestGemini = async () => {
-    setGeminiTesting(true)
-    setGeminiTestStatus(null)
-    try {
-      const result = await testGeminiConnection()
-      setGeminiTestStatus(result)
-    } catch (err) {
-      setGeminiTestStatus({ success: false, error: err?.message || 'Test failed' })
-    } finally {
-      setGeminiTesting(false)
-    }
   }
 
   useEffect(() => {
@@ -259,42 +235,10 @@ function Dashboard({ userId, userProfile, user }) {
           <p className="sidebar-ai-hint">{aiEnabled ? 'AI reads report (exact names & values)' : 'Turn on to upload & analyze reports'}</p>
           <div className="sidebar-llm-block">
             <span className="sidebar-llm-label">AI model</span>
-            <div className="sidebar-llm-segments" role="group" aria-label="AI text model">
-              <button
-                type="button"
-                className={`sidebar-llm-btn ${aiLlmProvider === 'gemini' ? 'sidebar-llm-btn-active' : ''}`}
-                onClick={() => handleLlmProviderChange('gemini')}
-                aria-pressed={aiLlmProvider === 'gemini'}
-              >
-                Gemini
-              </button>
-              <button
-                type="button"
-                className={`sidebar-llm-btn ${aiLlmProvider === 'claude' ? 'sidebar-llm-btn-active' : ''}`}
-                onClick={() => handleLlmProviderChange('claude')}
-                aria-pressed={aiLlmProvider === 'claude'}
-              >
-                Claude
-              </button>
-            </div>
-            <p className="sidebar-llm-hint">
-              <strong>Report</strong> upload/analysis uses the model you select (Gemini or Claude). Optional RAG step after analysis still needs a valid <strong>Gemini</strong> key for embeddings. <strong>Test Gemini API</strong> only checks Google.
+            <p className="sidebar-llm-claude-only">
+              Report upload and analysis use <strong>Claude (Anthropic)</strong>. Ayurveda reference lookup runs on the server after analysis.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleTestGemini}
-            disabled={geminiTesting}
-            className="sidebar-gemini-test-btn"
-            title="Verify Gemini 2.5 Flash API (paid subscription)"
-          >
-            {geminiTesting ? 'Testing…' : 'Test Gemini API'}
-          </button>
-          {geminiTestStatus && (
-            <p className={`sidebar-gemini-test-msg ${geminiTestStatus.success ? 'success' : 'error'}`}>
-              {geminiTestStatus.success ? geminiTestStatus.message : geminiTestStatus.error}
-            </p>
-          )}
         </div>
         <div className="sidebar-section">
           <h3 className="sidebar-title">Account</h3>
@@ -754,7 +698,6 @@ function Dashboard({ userId, userProfile, user }) {
           userId={userId}
           familyMembers={familyMembers}
           aiEnabled={aiEnabled}
-          aiLlmProvider={aiLlmProvider}
           user={user}
           userProfile={userProfile}
           onReportsChange={() => {

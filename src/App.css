@@ -8,7 +8,7 @@
 .header {
   background-color: var(--app-surface);
   padding: 1.5rem 2rem;
-  border-bottom: 1px solid var(--app-border);
+  border-bottom: var(--app-card-border-width, 2px) solid var(--app-accent);
   display: flex;
   justify-content: space-between;
   align-items: center;

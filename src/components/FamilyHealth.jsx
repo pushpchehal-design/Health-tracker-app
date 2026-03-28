@@ -30,8 +30,11 @@ const TEST_MARKERS_REMEDY = [
   { name: 'Neutrophils', unit: '%', normal_low: 40, normal_high: 80, category: 'Blood', direction: 'both', minAbnormalLow: 15, maxAbnormalHigh: 90 },
   { name: 'Lymphocytes', unit: '%', normal_low: 20, normal_high: 40, category: 'Blood', direction: 'both', minAbnormalLow: 5, maxAbnormalHigh: 60 },
   { name: 'Monocytes', unit: '%', normal_low: 2, normal_high: 10, category: 'Blood', direction: 'both', minAbnormalLow: 1, maxAbnormalHigh: 15 },
+  { name: 'Monocytes (Abs)', unit: '10^3 Cells/µL', normal_low: 0.5, normal_high: 0.9, category: 'Blood', direction: 'both', minAbnormalLow: 0.05, maxAbnormalHigh: 1.5 },
   { name: 'Eosinophils', unit: '%', normal_low: 1, normal_high: 6, category: 'Blood', direction: 'both', minAbnormalLow: 0, maxAbnormalHigh: 15 },
+  { name: 'Eosinophils (Abs)', unit: '10^3 Cells/µL', normal_low: 0.2, normal_high: 0.5, category: 'Blood', direction: 'both', minAbnormalLow: 0.02, maxAbnormalHigh: 1.2 },
   { name: 'Platelet Count', unit: 'cells/mcL', normal_low: 150000, normal_high: 400000, category: 'Blood', direction: 'both', minAbnormalLow: 50000, maxAbnormalHigh: 600000 },
+  { name: 'PlateletCrit', unit: '%', normal_low: 0.22, normal_high: 0.24, category: 'Blood', direction: 'both', minAbnormalLow: 0.12, maxAbnormalHigh: 0.35 },
   { name: 'MPV', unit: 'fL', normal_low: 9, normal_high: 13, category: 'Blood', direction: 'both', minAbnormalLow: 6, maxAbnormalHigh: 15 },
   { name: 'ESR', unit: 'mm/hr', normal_low: 0, normal_high: 10, category: 'Blood', direction: 'high', maxAbnormalHigh: 80 },
   { name: 'Total Cholesterol', unit: 'mg/dL', normal_low: 100, normal_high: 200, category: 'Heart', direction: 'both', minAbnormalLow: 80, maxAbnormalHigh: 350 },
@@ -39,6 +42,16 @@ const TEST_MARKERS_REMEDY = [
   { name: 'HDL Cholesterol', unit: 'mg/dL', normal_low: 40, normal_high: 60, category: 'Heart', direction: 'low', minAbnormalLow: 20 },
   { name: 'VLDL Cholesterol', unit: 'mg/dL', normal_low: 0, normal_high: 30, category: 'Heart', direction: 'high', maxAbnormalHigh: 60 },
   { name: 'Triglycerides', unit: 'mg/dL', normal_low: 0, normal_high: 150, category: 'Heart', direction: 'high', maxAbnormalHigh: 450 },
+  {
+    name: 'Estimated Average Glucose(eAG)',
+    unit: 'mg/dL',
+    normal_low: 70,
+    normal_high: 126,
+    category: 'Metabolic',
+    direction: 'both',
+    minAbnormalLow: 45,
+    maxAbnormalHigh: 220,
+  },
   { name: 'Non HDL Cholesterol', unit: 'mg/dL', normal_low: 0, normal_high: 130, category: 'Heart', direction: 'high', maxAbnormalHigh: 220 },
   { name: 'Total Cholesterol/HDL Ratio', unit: 'ratio', normal_low: 0, normal_high: 5, category: 'Heart', direction: 'both', minAbnormalLow: 0, maxAbnormalHigh: 8 },
   { name: 'Apolipoprotein A1', unit: 'mg/dL', normal_low: 70, normal_high: 120, category: 'Heart', direction: 'both', minAbnormalLow: 50, maxAbnormalHigh: 160 },
@@ -111,6 +124,67 @@ function randomAbnormalValue(marker, low, high) {
   return raw
 }
 
+/** When a marker is only in DB (not TEST_MARKERS_REMEDY), guess low vs high abnormal direction for plausible values. */
+function inferDirectionForRefName(name) {
+  const n = (name || '').toLowerCase()
+  if (/\(abs\)|absolute/.test(n)) return 'both'
+  if (/non[\s-]*hdl/.test(n)) return 'high'
+  if (/\beag\b|estimated average glucose|hba1c|glycated|glucose fasting|blood sugar|fasting glucose/.test(n)) return 'high'
+  if (/egfr|glomerular filtration/.test(n)) return 'low'
+  if (/\bhdl\b/.test(n)) return 'low'
+  if (
+    /ldl|vldl|triglycerid|total cholesterol|apolipoprotein|lipoprotein\(|crp|homocysteine|bilirubin|\balt\b|\bast\b|ggt|alkaline phosphatase|creatinine|^urea$|\bbun\b|uric acid|\besr\b|plt|platelet|mpv|pdw|plateletcrit|wbc|neutrophil|lymphocyte|eosinophil|basophil|monocyte/.test(
+      n,
+    )
+  ) {
+    return 'high'
+  }
+  return 'both'
+}
+
+/** Map a blood_marker_reference row to the same shape as TEST_MARKERS_REMEDY entries. */
+function markerFromReferenceRow(row) {
+  const low = Number(row.normal_low)
+  const high = Number(row.normal_high)
+  if (Number.isNaN(low) || Number.isNaN(high) || high <= low) return null
+  const preset = TEST_MARKERS_REMEDY.find((t) => t.name === row.name)
+  if (preset) return preset
+  const range = high - low
+  const margin = Math.max(range * 0.4, low === 0 ? high * 0.12 : range * 0.25, 0.001)
+  return {
+    name: row.name,
+    unit: row.unit || '',
+    normal_low: low,
+    normal_high: high,
+    category: row.category,
+    direction: inferDirectionForRefName(row.name),
+    minAbnormalLow: low >= 0 ? Math.max(0, low - margin * 2) : low - margin,
+    maxAbnormalHigh: high + margin * 2,
+  }
+}
+
+/** Built-in random mix vs every reference marker forced abnormal (for remedy gap testing). */
+async function resolveMarkersForTestDataMode(mode, supabaseClient) {
+  if (mode === 'random') {
+    return { markers: TEST_MARKERS_REMEDY, label: 'mixed random' }
+  }
+  const { data: refRows, error } = await supabaseClient
+    .from('blood_marker_reference')
+    .select('name, unit, normal_low, normal_high, category')
+    .order('category', { ascending: true })
+    .order('name', { ascending: true })
+  if (error) throw error
+  const byName = new Map()
+  for (const row of refRows || []) {
+    const m = markerFromReferenceRow(row)
+    if (m) byName.set(m.name, m)
+  }
+  for (const t of TEST_MARKERS_REMEDY) {
+    if (!byName.has(t.name)) byName.set(t.name, t)
+  }
+  return { markers: [...byName.values()], label: 'all abnormal (full reference)' }
+}
+
 function roundValue(val, low, high) {
   const range = high - low
   const decimals = range < 0.1 ? 3 : range < 1 ? 2 : range < 10 ? 2 : 1
@@ -133,6 +207,8 @@ function FamilyHealth({ userId, userProfile, familyMembers }) {
   const [testDataMemberId, setTestDataMemberId] = useState('user')
   const [generatingTestData, setGeneratingTestData] = useState(false)
   const [testDataMessage, setTestDataMessage] = useState({ type: '', text: '' })
+  /** 'random' = built-in list, ~45% abnormal; 'allAbnormal' = every DB reference marker + extras, all out of range */
+  const [testDataMode, setTestDataMode] = useState('random')
   const [outputType, setOutputType] = useState('graph')
   const [allMembersCharts, setAllMembersCharts] = useState([])
   const [dateFrom, setDateFrom] = useState('')
@@ -377,8 +453,8 @@ function FamilyHealth({ userId, userProfile, familyMembers }) {
     setGeneratingTestData(true)
     setTestDataMessage({ type: '', text: '' })
     try {
-      // Use full test marker set (Blood, Heart, Kidney, Liver) for remedy validation
-      const markers = TEST_MARKERS_REMEDY
+      const { markers, label: modeLabel } = await resolveMarkersForTestDataMode(testDataMode, supabase)
+      const allAbnormal = testDataMode === 'allAbnormal'
 
       const members = testDataForAll
         ? [{ familyMemberId: null }, ...(familyMembers || []).map((m) => ({ familyMemberId: m.id }))]
@@ -386,12 +462,13 @@ function FamilyHealth({ userId, userProfile, familyMembers }) {
       const recordedAt = `${testDataDate}T12:00:00.000Z`
 
       for (const { familyMemberId } of members) {
+        const reportLabel = allAbnormal ? `Test data (all abnormal) ${testDataDate}` : `Test data ${testDataDate}`
         const { data: report, error: reportErr } = await supabase
           .from('health_reports')
           .insert({
             user_id: userId,
             family_member_id: familyMemberId,
-            report_name: `Test data ${testDataDate}`,
+            report_name: reportLabel,
             report_type: 'Test data',
             file_url: null,
             file_type: 'test',
@@ -407,7 +484,7 @@ function FamilyHealth({ userId, userProfile, familyMembers }) {
           const low = Number(m.normal_low)
           const high = Number(m.normal_high)
           if (Number.isNaN(low) || Number.isNaN(high) || high <= low) continue
-          const outOfRange = Math.random() < 0.45
+          const outOfRange = allAbnormal || Math.random() < 0.45
           const raw = outOfRange ? randomAbnormalValue(m, low, high) : randomInRange(low, high)
           const value = roundValue(raw, low, high)
           const status = value >= low && value <= high ? 'normal' : 'abnormal'
@@ -430,7 +507,10 @@ function FamilyHealth({ userId, userProfile, familyMembers }) {
       }
 
       const who = testDataForAll ? `all ${members.length} member(s)` : memberKeyToName[testDataMemberId] || 'selected member'
-      setTestDataMessage({ type: 'success', text: `Test data generated for ${testDataDate} for ${who}. Select a category or view in Health Reports.` })
+      setTestDataMessage({
+        type: 'success',
+        text: `Test data (${modeLabel}) for ${testDataDate} — ${who}. ${markers.length} parameters. Open Health Reports to review remedies.`,
+      })
       setTestDataDate('')
       if (selectedCategory) loadMemberCategoryData()
       if (selectedCategoryFamily) loadAllMembersCategoryData()
@@ -446,7 +526,29 @@ function FamilyHealth({ userId, userProfile, familyMembers }) {
     <div className="family-health">
       <div className="family-health-test-data">
         <h3 className="family-health-test-data-title">Generate test data (testing only)</h3>
-        <p className="family-health-test-data-hint">Pick a date and generate sample values for Blood (CBC), Heart (lipids), Kidney, and Liver parameters. ~45% abnormal to test remedy display.</p>
+        <p className="family-health-test-data-hint">
+          Pick a date. <strong>Mixed random</strong> uses a built-in panel (~45% abnormal). <strong>All abnormal</strong> loads every marker from your reference list in the database (plus any built-in names not yet in that list) — each value is out of range so you can see missing remedy coverage in one pass.
+        </p>
+        <div className="family-health-test-data-row family-health-test-data-mode">
+          <label className="family-health-test-data-option">
+            <input
+              type="radio"
+              name="testDataMode"
+              checked={testDataMode === 'random'}
+              onChange={() => setTestDataMode('random')}
+            />
+            <span>Mixed random (~45% abnormal)</span>
+          </label>
+          <label className="family-health-test-data-option">
+            <input
+              type="radio"
+              name="testDataMode"
+              checked={testDataMode === 'allAbnormal'}
+              onChange={() => setTestDataMode('allAbnormal')}
+            />
+            <span>All abnormal (full reference DB)</span>
+          </label>
+        </div>
         <div className="family-health-test-data-row family-health-test-data-options">
           <label className="family-health-test-data-option">
             <input
@@ -582,13 +684,18 @@ function FamilyHealth({ userId, userProfile, familyMembers }) {
                   <h3>{chart.parameterName} {chart.unit && `(${chart.unit})`}</h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={chart.data} margin={{ top: 12, right: 12, left: 12, bottom: 24 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                      <XAxis dataKey="date" tick={{ fill: '#ccc', fontSize: 11 }} stroke="#666" label={{ value: 'Report date', position: 'insideBottom', offset: -8, fill: '#888', fontSize: 11 }} />
-                      <YAxis domain={chart.yDomain} tick={{ fill: '#ccc', fontSize: 11 }} tickFormatter={formatTick} stroke="#666" label={{ value: chart.unit ? `Value (${chart.unit})` : 'Value', angle: -90, position: 'insideLeft', fill: '#888', fontSize: 11 }} />
-                      <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid #333' }} labelStyle={{ color: '#fff' }} formatter={(value) => [value, 'Value']} labelFormatter={(label) => `Date: ${label}`} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+                      <XAxis dataKey="date" tick={{ fill: '#475569', fontSize: 11 }} stroke="#94a3b8" label={{ value: 'Report date', position: 'insideBottom', offset: -8, fill: '#64748b', fontSize: 11 }} />
+                      <YAxis domain={chart.yDomain} tick={{ fill: '#475569', fontSize: 11 }} tickFormatter={formatTick} stroke="#94a3b8" label={{ value: chart.unit ? `Value (${chart.unit})` : 'Value', angle: -90, position: 'insideLeft', fill: '#64748b', fontSize: 11 }} />
+                      <Tooltip
+                        contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#0f172a' }}
+                        labelStyle={{ color: '#334155', fontWeight: 600 }}
+                        formatter={(value) => [value, 'Value']}
+                        labelFormatter={(label) => `Date: ${label}`}
+                      />
                       {chart.normalLow != null && chart.normalHigh != null && <ReferenceArea y1={chart.normalLow} y2={chart.normalHigh} fill="#22c55a" fillOpacity={0.2} strokeOpacity={0.3} />}
-                      <Line type="monotone" dataKey="value" name="Value" stroke="#646cff" strokeWidth={2} dot={{ r: 4, fill: '#646cff' }} connectNulls />
-                      <Legend />
+                      <Line type="monotone" dataKey="value" name="Value" stroke="#4f46e5" strokeWidth={2} dot={{ r: 4, fill: '#4f46e5' }} connectNulls />
+                      <Legend wrapperStyle={{ color: '#334155', fontSize: 12 }} />
                     </LineChart>
                   </ResponsiveContainer>
                   {chart.normalLow != null && chart.normalHigh != null && <p className="reference-range-note">Acceptable range: {chart.normalLow} – {chart.normalHigh} {chart.unit}</p>}
@@ -680,15 +787,19 @@ function FamilyHealth({ userId, userProfile, familyMembers }) {
                   <h3>{chart.parameterName} {chart.unit && `(${chart.unit})`}</h3>
                   <ResponsiveContainer width="100%" height={340}>
                     <LineChart data={chart.data} margin={{ top: 12, right: 12, left: 12, bottom: 24 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                      <XAxis dataKey="date" tick={{ fill: '#ccc', fontSize: 11 }} stroke="#666" label={{ value: 'Report date', position: 'insideBottom', offset: -8, fill: '#888', fontSize: 11 }} />
-                      <YAxis domain={chart.yDomain} tick={{ fill: '#ccc', fontSize: 11 }} tickFormatter={formatTick} stroke="#666" label={{ value: chart.unit ? `Value (${chart.unit})` : 'Value', angle: -90, position: 'insideLeft', fill: '#888', fontSize: 11 }} />
-                      <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid #333' }} labelStyle={{ color: '#fff' }} labelFormatter={(label) => `Date: ${label}`} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+                      <XAxis dataKey="date" tick={{ fill: '#475569', fontSize: 11 }} stroke="#94a3b8" label={{ value: 'Report date', position: 'insideBottom', offset: -8, fill: '#64748b', fontSize: 11 }} />
+                      <YAxis domain={chart.yDomain} tick={{ fill: '#475569', fontSize: 11 }} tickFormatter={formatTick} stroke="#94a3b8" label={{ value: chart.unit ? `Value (${chart.unit})` : 'Value', angle: -90, position: 'insideLeft', fill: '#64748b', fontSize: 11 }} />
+                      <Tooltip
+                        contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#0f172a' }}
+                        labelStyle={{ color: '#334155', fontWeight: 600 }}
+                        labelFormatter={(label) => `Date: ${label}`}
+                      />
                       {chart.normalLow != null && chart.normalHigh != null && <ReferenceArea y1={chart.normalLow} y2={chart.normalHigh} fill="#22c55a" fillOpacity={0.2} strokeOpacity={0.3} />}
                       {chart.memberKeys.map((mk, i) => (
                         <Line key={mk} type="monotone" dataKey={mk} name={memberKeyToFirstName[mk] || memberKeyToName[mk] || mk} stroke={colors[i % colors.length]} strokeWidth={2} dot={{ r: 4, fill: colors[i % colors.length] }} connectNulls />
                       ))}
-                      <Legend />
+                      <Legend wrapperStyle={{ color: '#334155', fontSize: 12 }} />
                     </LineChart>
                   </ResponsiveContainer>
                   {chart.normalLow != null && chart.normalHigh != null && <p className="reference-range-note">Acceptable range: {chart.normalLow} – {chart.normalHigh} {chart.unit}</p>}

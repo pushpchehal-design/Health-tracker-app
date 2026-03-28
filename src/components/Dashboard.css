@@ -9,7 +9,8 @@
   min-width: 260px;
   padding: 1.5rem 1rem;
   background: var(--app-surface);
-  border-right: 1px solid var(--app-border);
+  border-right: var(--app-card-border-width, 2px) solid var(--app-accent);
+  box-shadow: 2px 0 12px var(--app-shadow);
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -109,6 +110,13 @@
   font-size: 0.68rem;
   line-height: 1.35;
   color: var(--app-text-subtle);
+}
+
+.sidebar-llm-claude-only {
+  margin: 0.35rem 0 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--app-text-soft);
 }
 
 .sidebar-gemini-test-btn {
@@ -369,7 +377,7 @@
   margin-top: 1rem;
   padding: 1rem 1.25rem;
   background: var(--app-surface);
-  border: 1px solid var(--app-border);
+  border: var(--app-card-border-width, 2px) solid var(--app-accent);
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -415,7 +423,7 @@
 .dashboard-member-card {
   align-self: start;
   background-color: var(--app-surface);
-  border: 1px solid var(--app-border);
+  border: var(--app-card-border-width, 2px) solid var(--app-accent);
   border-radius: 12px;
   padding: 1rem 1.25rem;
   transition: transform 0.2s, box-shadow 0.2s;
@@ -443,7 +451,7 @@
 
 .dashboard-member-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(100, 108, 255, 0.2);
+  box-shadow: 0 6px 20px var(--app-shadow);
 }
 
 .member-card-header {
@@ -604,7 +612,7 @@
 
 .member-form-section {
   background-color: var(--app-surface);
-  border: 1px solid var(--app-border);
+  border: var(--app-card-border-width, 2px) solid var(--app-accent);
   border-radius: 8px;
   padding: 2rem;
   margin-bottom: 2rem;

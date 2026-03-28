@@ -18,7 +18,7 @@
 .upload-report-btn {
   padding: 0.75rem 1.5rem;
   background-color: var(--app-accent);
-  color: var(--app-text);
+  color: var(--app-on-accent);
   border: none;
   border-radius: 6px;
   font-size: 1rem;
@@ -33,7 +33,7 @@
 
 .add-report-choice {
   background-color: var(--app-surface);
-  border: 1px solid var(--app-border);
+  border: var(--app-card-border-width, 2px) solid var(--app-accent);
   border-radius: 8px;
   padding: 2rem;
   margin-bottom: 2rem;
@@ -110,7 +110,7 @@
 
 .manual-entry-section {
   background-color: var(--app-surface);
-  border: 1px solid var(--app-border);
+  border: var(--app-card-border-width, 2px) solid var(--app-accent);
   border-radius: 8px;
   padding: 2rem;
   margin-bottom: 2rem;
@@ -194,7 +194,7 @@
 
 .upload-section {
   background-color: var(--app-surface);
-  border: 1px solid var(--app-border);
+  border: var(--app-card-border-width, 2px) solid var(--app-accent);
   border-radius: 8px;
   padding: 2rem;
   margin-bottom: 2rem;
@@ -264,7 +264,7 @@
 .file-input::file-selector-button {
   padding: 0.5rem 1rem;
   background-color: var(--app-accent);
-  color: var(--app-text);
+  color: var(--app-on-accent);
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -334,7 +334,7 @@
 
 .report-card {
   background-color: var(--app-surface);
-  border: 1px solid var(--app-border);
+  border: var(--app-card-border-width, 2px) solid var(--app-accent);
   border-radius: 8px;
   padding: 2rem;
 }
@@ -393,17 +393,17 @@
 
 .status-processing {
   background-color: var(--app-accent);
-  color: var(--app-text);
+  color: var(--app-on-accent);
 }
 
 .status-completed {
   background-color: #22c55e;
-  color: var(--app-text);
+  color: #ffffff;
 }
 
 .status-failed {
   background-color: #ff4444;
-  color: var(--app-text);
+  color: #ffffff;
 }
 
 .delete-report-btn {
@@ -421,8 +421,8 @@
 }
 
 .pending-analysis {
-  background-color: var(--app-bg);
-  border: 1px solid var(--app-text-muted);
+  background-color: var(--app-surface);
+  border: var(--app-card-border-width, 2px) solid var(--app-accent);
   border-radius: 6px;
   padding: 1rem;
   margin-bottom: 1rem;
@@ -456,8 +456,8 @@
 }
 
 .analyzing-global-banner {
-  background: linear-gradient(135deg, var(--app-surface) 0%, var(--app-bg) 100%);
-  border: 1px solid var(--app-accent);
+  background: var(--app-surface);
+  border: var(--app-card-border-width, 2px) solid var(--app-accent);
   border-radius: 8px;
   padding: 1rem 1.25rem;
   margin-bottom: 1rem;
@@ -476,8 +476,8 @@
 }
 
 .analyzing {
-  background-color: var(--app-bg);
-  border: 1px solid var(--app-accent);
+  background-color: var(--app-surface);
+  border: var(--app-card-border-width, 2px) solid var(--app-accent);
   border-radius: 6px;
   padding: 1.25rem;
   margin-bottom: 1rem;
@@ -496,6 +496,11 @@
   gap: 0.5rem;
   font-size: 1.1rem;
   color: var(--app-text-muted);
+}
+
+.analyzing-elapsed {
+  font-variant-numeric: tabular-nums;
+  min-width: 2ch;
 }
 
 .analyzing-clock {
@@ -588,10 +593,10 @@
 .analysis-readings {
   margin-top: 1rem;
   padding: 1rem;
-  background-color: var(--app-elevated);
+  background-color: var(--app-surface);
   border: 1px solid var(--app-border-strong);
   border-radius: 6px;
-  color: #e0e0e0;
+  color: var(--app-text);
   font-size: 0.95rem;
   line-height: 1.8;
   white-space: pre-wrap;
@@ -609,14 +614,14 @@
 .recommendations-block {
   margin-top: 1rem;
   padding: 1rem;
-  background-color: #1a2a1a;
-  border: 1px solid #334433;
+  background-color: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.35);
   border-radius: 6px;
 }
 
 .recommendations-text {
   margin: 0;
-  color: #d0e0d0;
+  color: var(--app-text);
   font-family: inherit;
   font-size: 0.95rem;
   line-height: 1.7;
@@ -654,7 +659,7 @@
 
 .parameters-table td {
   padding: 0.75rem 1rem;
-  color: #e0e0e0;
+  color: var(--app-text);
   font-size: 0.95rem;
   border-bottom: 1px solid var(--app-border);
 }
@@ -668,12 +673,12 @@
 }
 
 .parameter-abnormal {
-  background-color: #2a1a1a !important;
-  border-left: 4px solid #ef4444;
+  background-color: rgba(254, 202, 202, 0.45) !important;
+  border-left: 4px solid #dc2626;
 }
 
 .parameter-abnormal:hover {
-  background-color: #331a1a !important;
+  background-color: rgba(254, 202, 202, 0.65) !important;
 }
 
 .parameter-normal {
@@ -687,7 +692,7 @@
 
 .parameter-value {
   font-weight: 600;
-  color: #e0e0e0;
+  color: var(--app-text);
 }
 
 .parameter-range {
@@ -720,12 +725,12 @@
 
 .status-normal {
   background-color: #22c55e;
-  color: var(--app-text);
+  color: #ffffff;
 }
 
 .status-abnormal {
   background-color: #ef4444;
-  color: var(--app-text);
+  color: #ffffff;
 }
 
 @media (max-width: 768px) {
@@ -755,7 +760,7 @@
 
 .analysis-error {
   background-color: #ff4444;
-  color: var(--app-text);
+  color: #ffffff;
   padding: 1rem;
   border-radius: 6px;
   margin-top: 1rem;
@@ -792,11 +797,12 @@
 }
 
 .ayurveda-generate-section {
-  background-color: #1a1a2a;
-  border: 1px solid var(--app-border);
+  background-color: var(--app-surface);
+  border: var(--app-card-border-width, 2px) solid var(--app-accent);
   border-radius: 8px;
   padding: 1.5rem;
   margin-bottom: 2rem;
+  box-shadow: 0 1px 3px var(--app-shadow);
 }
 
 .ayurveda-generate-section h3 {
@@ -890,11 +896,13 @@
 }
 
 .analysis-credit-ok {
-  color: #86efac;
+  color: #15803d;
+  font-weight: 500;
 }
 
 .analysis-credit-missing {
-  color: #fcd34d;
+  color: #b45309;
+  font-weight: 500;
 }
 
 .ayurveda-pay-row {
@@ -994,9 +1002,9 @@
 }
 
 .analysis-tier-banner-basic {
-  background: rgba(251, 191, 36, 0.12);
-  border: 1px solid rgba(251, 191, 36, 0.35);
-  color: #fcd34d;
+  background: rgba(251, 191, 36, 0.15);
+  border: 1px solid rgba(217, 119, 6, 0.45);
+  color: #92400e;
 }
 
 .analysis-paywall-banner {
@@ -1048,15 +1056,15 @@
 }
 
 .ayurveda-message-success {
-  background: rgba(34, 197, 94, 0.2);
-  border: 1px solid rgba(34, 197, 94, 0.5);
-  color: #86efac;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(22, 163, 74, 0.45);
+  color: #14532d;
 }
 
 .ayurveda-message-error {
-  background: rgba(239, 68, 68, 0.2);
-  border: 1px solid rgba(239, 68, 68, 0.5);
-  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(220, 38, 38, 0.45);
+  color: #991b1b;
 }
 
 .reports-tabs-row {
@@ -1136,7 +1144,7 @@
   display: inline-block;
   padding: 0.9rem 1.5rem;
   background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-  color: var(--app-text);
+  color: #ffffff;
   border: none;
   border-radius: 8px;
   font-size: 1rem;
@@ -1157,9 +1165,10 @@
   gap: 1rem 2rem;
   margin-bottom: 1.5rem;
   padding: 1.25rem;
-  background: #1e1e1e;
+  background: var(--app-surface);
   border-radius: 8px;
-  border: 1px solid var(--app-border);
+  border: var(--app-card-border-width, 2px) solid var(--app-accent);
+  box-shadow: 0 1px 3px var(--app-shadow);
 }
 
 .report-analysis-meta-row {
@@ -1176,9 +1185,9 @@
 .report-analysis-header {
   margin-bottom: 1rem;
   padding: 1rem;
-  background: #1e1e1e;
+  background: var(--app-surface);
   border-radius: 8px;
-  border: 1px solid var(--app-border);
+  border: var(--app-card-border-width, 2px) solid var(--app-accent);
 }
 
 .report-analysis-meta {
@@ -1216,17 +1225,17 @@
   gap: 0.5rem;
   width: 100%;
   padding: 0.75rem 1rem;
-  background: #252525;
-  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+  border: var(--app-card-border-width, 2px) solid var(--app-accent);
   border-radius: 6px;
-  color: #eee;
+  color: var(--app-text);
   font-size: 1rem;
   cursor: pointer;
   text-align: left;
 }
 
 .archived-member-header:hover {
-  background: var(--app-elevated);
+  background: var(--app-fill-muted);
 }
 
 .archived-member-name {
@@ -1285,7 +1294,7 @@
 
 .show-archived-btn:hover {
   color: var(--app-text-soft);
-  border-color: #666;
+  border-color: var(--app-accent);
 }
 
 .archive-all-btn {
@@ -1299,7 +1308,7 @@
 }
 
 .archive-all-btn:hover {
-  background: #444;
+  background: var(--app-fill-hover);
 }
 
 .report-archive-prompt {
@@ -1331,7 +1340,7 @@
 }
 
 .archive-report-btn:hover {
-  background: #444;
+  background: var(--app-fill-hover);
 }
 
 .archive-report-btn-inline {
@@ -1390,30 +1399,31 @@
 }
 
 .report-format-table thead {
-  background: #1e1e1e;
+  background: var(--app-fill-muted);
 }
 
 .report-format-table th {
   text-align: left;
   padding: 0.85rem 1rem;
-  color: #a5b4fc;
+  color: var(--app-text);
   font-weight: 600;
-  border-bottom: 1px solid var(--app-border);
+  border-bottom: 1px solid var(--app-border-strong);
 }
 
 .report-format-table td {
   padding: 1rem;
-  border-bottom: 1px solid var(--app-elevated);
-  color: #e0e0e0;
+  border-bottom: 1px solid var(--app-border);
+  color: var(--app-text);
   vertical-align: top;
+  background: var(--app-surface);
 }
 
 .report-format-table tbody tr:last-child td {
   border-bottom: none;
 }
 
-.report-format-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.02);
+.report-format-table tbody tr:hover td {
+  background: var(--app-fill-muted);
 }
 
 .report-format-param {
@@ -1439,31 +1449,38 @@
 .report-format-lifestyle {
   min-width: 160px;
   line-height: 1.5;
+  color: var(--app-text);
 }
 
+/* Slight hue helps scan columns; stays dark enough for WCAG on white */
 .report-format-remedy {
-  color: #c4b5fd;
+  color: #3730a3;
 }
 
 .report-format-dietary {
-  color: #a7f3d0;
+  color: #14532d;
 }
 
 .report-format-lifestyle {
-  color: #bae6fd;
+  color: #0c4a6e;
 }
 
-.report-format-row-abnormal {
-  background: rgba(248, 113, 113, 0.06);
+.report-format-row-abnormal td {
+  background: rgba(254, 202, 202, 0.35);
+}
+
+.report-format-row-abnormal:hover td {
+  background: rgba(254, 202, 202, 0.5);
 }
 
 .report-param-status-badge {
   display: inline-block;
   margin-top: 0.25rem;
   padding: 0.15rem 0.4rem;
-  background: rgba(248, 113, 113, 0.25);
-  color: #fca5a5;
+  background: rgba(220, 38, 38, 0.12);
+  color: #991b1b;
   font-size: 0.75rem;
+  font-weight: 600;
   border-radius: 4px;
 }
 

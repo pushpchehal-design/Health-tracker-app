@@ -5,22 +5,24 @@
 .family-health-test-data {
   margin-bottom: 1.5rem;
   padding: 1rem 1.25rem;
-  background: #1a1a1a;
-  border: 1px solid #333;
+  background: var(--app-surface);
+  border: var(--app-card-border-width, 2px) solid var(--app-accent);
   border-radius: 12px;
+  box-shadow: 0 1px 3px var(--app-shadow);
 }
 
 .family-health-test-data-title {
   margin: 0 0 0.35rem 0;
-  color: #fff;
+  color: var(--app-text);
   font-size: 1rem;
   font-weight: 600;
 }
 
 .family-health-test-data-hint {
   margin: 0 0 0.75rem 0;
-  color: #888;
+  color: var(--app-text-muted);
   font-size: 0.85rem;
+  line-height: 1.45;
 }
 
 .family-health-test-data-row {
@@ -28,6 +30,10 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
+}
+
+.family-health-test-data-mode {
+  margin-bottom: 0.35rem;
 }
 
 .family-health-test-data-options {
@@ -38,7 +44,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  color: #ccc;
+  color: var(--app-text-soft);
   font-size: 0.9rem;
   cursor: pointer;
 }
@@ -49,35 +55,35 @@
 
 .family-health-test-data-member-select {
   padding: 0.4rem 0.6rem;
-  background: #242424;
-  border: 1px solid #444;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-strong);
   border-radius: 6px;
-  color: #fff;
+  color: var(--app-text);
   font-size: 0.9rem;
 }
 
 .family-health-test-data-date {
   padding: 0.5rem 0.75rem;
-  background: #0d0d0d;
-  border: 1px solid #444;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-strong);
   border-radius: 6px;
-  color: #fff;
+  color: var(--app-text);
   font-size: 1rem;
 }
 
 .family-health-test-data-btn {
   padding: 0.5rem 1rem;
-  background: #646cff;
+  background: var(--app-accent);
   border: none;
   border-radius: 6px;
-  color: #fff;
+  color: var(--app-on-accent);
   font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
 }
 
 .family-health-test-data-btn:hover:not(:disabled) {
-  background: #555ce0;
+  background: var(--app-accent-hover);
 }
 
 .family-health-test-data-btn:disabled {
@@ -91,32 +97,34 @@
 }
 
 .family-health-test-data-msg-success {
-  color: #22c55a;
+  color: #15803d;
 }
 
 .family-health-test-data-msg-error {
-  color: #f87171;
+  color: #b91c1c;
 }
 
 .family-health-date-range {
   margin-bottom: 1.5rem;
   padding: 1rem 1.25rem;
-  background: #1a1a1a;
-  border: 1px solid #333;
+  background: var(--app-surface);
+  border: var(--app-card-border-width, 2px) solid var(--app-accent);
   border-radius: 12px;
+  box-shadow: 0 1px 3px var(--app-shadow);
 }
 
 .family-health-date-range-title {
   margin: 0 0 0.35rem 0;
-  color: #fff;
+  color: var(--app-text);
   font-size: 1rem;
   font-weight: 600;
 }
 
 .family-health-date-range-hint {
   margin: 0 0 0.75rem 0;
-  color: #888;
+  color: var(--app-text-muted);
   font-size: 0.85rem;
+  line-height: 1.45;
 }
 
 .family-health-date-range-row {
@@ -128,10 +136,10 @@
 
 .family-health-date-input {
   padding: 0.5rem 0.75rem;
-  background: #0d0d0d;
-  border: 1px solid #444;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-strong);
   border-radius: 6px;
-  color: #fff;
+  color: var(--app-text);
   font-size: 1rem;
 }
 
@@ -153,7 +161,7 @@
 }
 
 .family-health-filters label {
-  color: #888;
+  color: var(--app-text-muted);
   font-size: 0.9rem;
   font-weight: 500;
 }
@@ -161,17 +169,18 @@
 .family-health-filters select {
   min-width: 180px;
   padding: 0.5rem 0.75rem;
-  background: #1a1a1a;
-  border: 1px solid #444;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-strong);
   border-radius: 6px;
-  color: #fff;
+  color: var(--app-text);
   font-size: 1rem;
 }
 
 .family-health-intro {
-  color: #888;
+  color: var(--app-text-muted);
   margin-bottom: 1.5rem;
   font-size: 0.95rem;
+  line-height: 1.5;
 }
 
 .family-health-loading,
@@ -179,14 +188,14 @@
 .family-health-empty {
   text-align: center;
   padding: 3rem 2rem;
-  color: #888;
-  background: #1a1a1a;
-  border: 1px solid #333;
+  color: var(--app-text-muted);
+  background: var(--app-surface);
+  border: var(--app-card-border-width, 2px) solid var(--app-accent);
   border-radius: 12px;
 }
 
 .family-health-error {
-  color: #f87171;
+  color: #b91c1c;
 }
 
 .family-health-charts {
@@ -214,24 +223,25 @@
 }
 
 .family-health-chart-card {
-  background: #1a1a1a;
-  border: 1px solid #333;
+  background: var(--app-surface);
+  border: var(--app-card-border-width, 2px) solid var(--app-accent);
   border-radius: 12px;
   padding: 1.25rem;
   min-height: 0;
   width: 100%;
+  box-shadow: 0 1px 3px var(--app-shadow);
 }
 
 .family-health-chart-card h3 {
   margin: 0 0 0.75rem 0;
-  color: #fff;
+  color: var(--app-text);
   font-size: 1rem;
 }
 
 .reference-range-note {
   margin: 0.75rem 0 0 0;
   font-size: 0.85rem;
-  color: #888;
+  color: var(--app-text-muted);
 }
 
 /* Section layout: Graph vs Tabular */
@@ -241,7 +251,7 @@
 
 .family-health-section-title {
   margin: 0 0 1rem 0;
-  color: #fff;
+  color: var(--app-text);
   font-size: 1.1rem;
   font-weight: 600;
 }
@@ -249,8 +259,8 @@
 /* Tabular format */
 .family-health-table-wrap {
   overflow-x: auto;
-  background: #1a1a1a;
-  border: 1px solid #333;
+  background: var(--app-surface);
+  border: var(--app-card-border-width, 2px) solid var(--app-accent);
   border-radius: 12px;
 }
 
@@ -264,30 +274,31 @@
 .family-health-table td {
   padding: 0.6rem 0.75rem;
   text-align: left;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--app-border);
 }
 
 .family-health-table th {
-  color: #646cff;
+  color: var(--app-accent);
   font-weight: 600;
   white-space: nowrap;
+  background: var(--app-fill-muted);
 }
 
 .family-health-table td {
-  color: #ccc;
+  color: var(--app-text-soft);
 }
 
 .family-health-table tbody tr:hover {
-  background: #222;
+  background: var(--app-fill-muted);
 }
 
 .family-health-table-param {
   font-weight: 500;
-  color: #fff;
+  color: var(--app-text);
 }
 
 .family-health-table-unit {
-  color: #888;
+  color: var(--app-text-muted);
   font-weight: 400;
 }
 
@@ -297,13 +308,13 @@
 }
 
 .family-health-table .change-up {
-  color: #22c55a;
+  color: #15803d;
 }
 
 .family-health-table .change-down {
-  color: #f87171;
+  color: #b91c1c;
 }
 
 .family-health-table .change-same {
-  color: #888;
+  color: var(--app-text-muted);
 }

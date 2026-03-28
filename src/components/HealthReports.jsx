@@ -38,7 +38,6 @@ function HealthReports({
   userId,
   familyMembers,
   aiEnabled = false,
-  aiLlmProvider = 'gemini',
   onReportsChange,
   user = null,
   userProfile = null,
@@ -464,7 +463,7 @@ function HealthReports({
       // Full tier
       if (aiEnabled) {
         await generateAyurvedaRecommendations(ayurvedaReportId, userId, {
-          llmProvider: aiLlmProvider === 'claude' ? 'claude' : 'gemini',
+          llmProvider: 'claude',
         })
       }
       const { error: upErr2 } = await supabase
@@ -800,7 +799,7 @@ function HealthReports({
 
   const performAIAnalysis = async (fileUrl, filePath, fileType, reportId) => {
     return await analyzeHealthReport(fileUrl, filePath, fileType, reportId, aiEnabled, {
-      llmProvider: aiLlmProvider === 'claude' ? 'claude' : 'gemini',
+      llmProvider: 'claude',
     })
   }
 
@@ -915,6 +914,7 @@ function HealthReports({
   }
 
   function renderReportCard(report, isArchived = false) {
+    const analyzingThis = analyzingReportId === report.id
     return (
       <>
       <div className="report-header">
@@ -965,32 +965,32 @@ function HealthReports({
           </button>
         </div>
       </div>
-      {report.analysis_status === 'pending' && (
+      {report.analysis_status === 'pending' && !analyzingThis && (
         <div className="pending-analysis">
           <p>⏳ Analysis not started yet.</p>
           <button
             onClick={() => handleManualAnalyze(report)}
             className="analyze-btn"
-            disabled={analyzingReportId === report.id}
+            disabled={analyzingThis}
           >
-            {analyzingReportId === report.id ? 'Analyzing...' : 'Start Analysis'}
+            Start Analysis
           </button>
         </div>
       )}
-      {(report.analysis_status === 'processing' || (report.analysis_status === 'completed' && analyzingReportId === report.id)) && (
+      {(report.analysis_status === 'processing' ||
+        (report.analysis_status === 'completed' && analyzingThis) ||
+        (report.analysis_status === 'pending' && analyzingThis)) && (
         <div className="analyzing">
           <p className="analyzing-message">{getAnalysisPhaseLabel(analysisElapsedSeconds)}</p>
-          {analyzingReportId === report.id && (
+          {analyzingThis && (
             <div className="analyzing-timer" aria-live="polite">
               <span className="analyzing-clock">⏱</span>
-              <span>
-                {analysisElapsedSeconds}s / {ANALYSIS_MIN_SECONDS}s
-              </span>
+              <span className="analyzing-elapsed">{analysisElapsedSeconds}s</span>
             </div>
           )}
         </div>
       )}
-      {report.analysis_status === 'completed' && analyzingReportId !== report.id && (() => {
+      {report.analysis_status === 'completed' && !analyzingThis && (() => {
         const ayurvedaUnlocked =
           report.ayurveda_tier === 'basic' || report.ayurveda_tier === 'full'
         let sections = getSectionsByCategory(report)
@@ -1125,9 +1125,7 @@ function HealthReports({
             <p className="analyzing-message">{getAnalysisPhaseLabel(analysisElapsedSeconds)}</p>
             <div className="analyzing-timer" aria-live="polite">
               <span className="analyzing-clock">⏱</span>
-              <span>
-                {analysisElapsedSeconds}s / {ANALYSIS_MIN_SECONDS}s
-              </span>
+              <span className="analyzing-elapsed">{analysisElapsedSeconds}s</span>
             </div>
           </div>
         )}
