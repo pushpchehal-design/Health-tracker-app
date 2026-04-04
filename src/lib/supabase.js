@@ -1,5 +1,5 @@
 // Supabase connection file
-// This file connects your app to your Supabase database
+// Connects the app to your Supabase project (auth, storage, and data APIs).
 
 import { createClient } from '@supabase/supabase-js'
 

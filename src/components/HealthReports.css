@@ -4,9 +4,18 @@
 
 .reports-header {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.reports-header-row {
+  display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .reports-header h2 {
@@ -324,6 +333,19 @@
   font-style: italic;
 }
 
+.report-date-readable-display {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--app-text-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.report-date-readable-display-placeholder {
+  font-style: italic;
+  color: var(--app-text-muted);
+}
+
 .upload-btn {
   padding: 0.75rem 1.5rem;
   background-color: var(--app-accent);
@@ -497,7 +519,7 @@
   border: var(--app-card-border-width, 2px) solid var(--app-accent);
   border-radius: 8px;
   padding: 1rem 1.25rem;
-  margin-bottom: 1rem;
+  margin: 0;
   color: var(--app-text);
   text-align: center;
   display: flex;
@@ -506,9 +528,8 @@
   justify-content: center;
   gap: 0.5rem;
   width: 100%;
-  max-width: 520px;
-  margin-left: auto;
-  margin-right: auto;
+  max-width: none;
+  box-sizing: border-box;
 }
 
 .analyzing-global-banner .analyzing-message {
@@ -865,6 +886,24 @@
   margin-bottom: 1rem;
 }
 
+.ayurveda-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.25rem 1.5rem;
+  align-items: start;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 960px) {
+  .ayurveda-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ayurveda-layout .ayurveda-generate-section {
+  margin-bottom: 0;
+}
+
 .ayurveda-generate-section {
   background-color: var(--app-surface);
   border: var(--app-card-border-width, 2px) solid var(--app-accent);
@@ -872,6 +911,7 @@
   padding: 1.5rem;
   margin-bottom: 2rem;
   box-shadow: 0 1px 3px var(--app-shadow);
+  min-width: 0;
 }
 
 .ayurveda-generate-section h3 {
@@ -880,10 +920,125 @@
   font-size: 1.1rem;
 }
 
-.ayurveda-generate-hint {
+.ayurveda-generate-section .analysis-tier-cards {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+.ayurveda-attention-panel {
+  background-color: var(--app-surface);
+  border: var(--app-card-border-width, 2px) solid var(--app-accent);
+  border-radius: 12px;
+  padding: 1.25rem 1.35rem;
+  box-shadow: 0 1px 3px var(--app-shadow);
+  min-width: 0;
+  min-height: 8rem;
+}
+
+.ayurveda-attention-title {
+  margin: 0 0 0.35rem 0;
+  color: var(--app-accent);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.ayurveda-attention-lead {
   margin: 0 0 1rem 0;
   color: var(--app-text-muted);
-  font-size: 0.9rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.ayurveda-attention-placeholder,
+.ayurveda-attention-none {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--app-text-soft);
+  line-height: 1.5;
+}
+
+.ayurveda-attention-none {
+  color: var(--app-text-muted);
+}
+
+.ayurveda-attention-pairs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ayurveda-attention-pair-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.ayurveda-attention-pair-row--solo {
+  grid-template-columns: 1fr;
+}
+
+.ayurveda-attention-pair-cell {
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .ayurveda-attention-pair-row:not(.ayurveda-attention-pair-row--solo) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ayurveda-attention-section {
+  background: var(--app-bg);
+  border: 1px solid var(--app-border-strong);
+  border-radius: 10px;
+  padding: 0.8rem 0.95rem;
+  box-shadow: 0 1px 2px var(--app-shadow);
+}
+
+.ayurveda-attention-section-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.45rem;
+}
+
+.ayurveda-attention-section-title {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--app-text);
+}
+
+.ayurveda-attention-emoji {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.ayurveda-attention-param-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 0.82rem;
+  color: var(--app-text-muted);
+  line-height: 1.45;
+}
+
+.ayurveda-attention-param-list li {
+  margin-bottom: 0.2rem;
+}
+
+.ayurveda-attention-param-list li:last-child {
+  margin-bottom: 0;
+}
+
+.ayurveda-attention-param-item {
+  list-style-position: outside;
+  padding: 0.25rem 0.5rem 0.25rem 0.35rem;
+  margin-bottom: 0.35rem !important;
+  margin-left: 0.15rem;
+  background: color-mix(in srgb, var(--app-accent) 12%, transparent);
+  border-left: 3px solid var(--app-accent);
+  border-radius: 4px;
+  font-weight: 600;
+  color: var(--app-text);
 }
 
 .analysis-tier-cards {
@@ -1091,11 +1246,64 @@
   color: var(--app-text);
 }
 
+.ayurveda-report-selection-block {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--app-border-strong);
+}
+
+.ayurveda-select-report-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem 1.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.ayurveda-select-report-heading {
+  margin: 0;
+  flex: 1 1 200px;
+  max-width: 14rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--app-accent);
+  line-height: 1.35;
+  padding-bottom: 0.15rem;
+}
+
+.ayurveda-select-hint {
+  margin: 0 0 1rem 0;
+  font-size: 0.82rem;
+  color: var(--app-text-muted);
+  line-height: 1.45;
+}
+
+.ayurveda-generate-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.ayurveda-generate-action-note {
+  flex: 1 1 200px;
+  font-size: 0.8rem;
+  color: var(--app-text-soft);
+  line-height: 1.4;
+  max-width: 26rem;
+}
+
 .ayurveda-generate-form {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 1rem;
+}
+
+.ayurveda-generate-form--select-only {
+  flex: 1 1 280px;
+  min-width: min(100%, 320px);
 }
 
 .ayurveda-generate-form .form-group {
@@ -1115,6 +1323,26 @@
 
 .ayurveda-generate-btn {
   flex-shrink: 0;
+}
+
+.ayurveda-generate-progress {
+  margin-top: 1rem;
+  padding: 1rem 1.25rem;
+  background: var(--app-bg);
+  border: 1px solid var(--app-border-strong);
+  border-radius: 8px;
+}
+
+.ayurveda-generate-progress-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--app-text-soft);
+  text-align: center;
+}
+
+.ayurveda-generate-progress .analysis-progress-wrap {
+  max-width: 100%;
 }
 
 .ayurveda-message {

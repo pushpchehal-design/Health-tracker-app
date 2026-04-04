@@ -11,19 +11,139 @@ const REPORT_CATEGORIES = ['Heart', 'Liver', 'Kidney', 'Blood', 'Metabolic', 'El
 
 const CATEGORY_DISPLAY_ORDER = ['Heart', 'Blood', 'Kidney', 'Liver', 'Metabolic', 'Electrolytes', 'Thyroid', 'Urine', 'Tumor Markers', 'Other']
 const CATEGORY_ICONS = {
-  Heart: '❤️',
+  Heart: '🫀',
   Blood: '🩸',
   Kidney: '🫘',
-  Liver: '🔶',
+  Liver: '🟠',
+  Lipid: '🫗',
   Metabolic: '⚡',
   Electrolytes: '💧',
   Thyroid: '🦋',
   Urine: '🧪',
   'Tumor Markers': '📋',
-  Other: '•'
+  Other: '•',
 }
 
-/** Master CSV / DB marker_name often differs from blood_marker_reference canonical name */
+/** Order of blocks in “Parameters that need attention” (Heart / Liver / Kidney / Lipid first, then the rest). */
+const ATTENTION_SECTION_ORDER = [
+  'Heart',
+  'Liver',
+  'Kidney',
+  'Lipid',
+  'Blood',
+  'Metabolic',
+  'Electrolytes',
+  'Thyroid',
+  'Urine',
+  'Tumor Markers',
+  'Other',
+]
+
+/** Attention panel layout: Heart | Liver, Kidney | Lipid, then paired rows for remaining categories. */
+const ATTENTION_PAIR_ROWS = [
+  ['Heart', 'Liver'],
+  ['Kidney', 'Lipid'],
+  ['Blood', 'Metabolic'],
+  ['Electrolytes', 'Thyroid'],
+  ['Urine', 'Tumor Markers'],
+  ['Other', null],
+]
+
+/** Lab “Heart” often mixes lipids with cardiac markers — show lipids under their own section in the attention panel. */
+function attentionDisplayCategory(dbCategory, parameterName) {
+  const name = String(parameterName || '')
+  const lower = name.toLowerCase()
+  if (dbCategory === 'Heart') {
+    const isLipid =
+      /cholesterol|ldl|hdl|triglycerid|apolipoprotein|lipoprotein|vldl|non[\s-]*hdl|\blipid\b|lipoprotein\s*\(a\)|\blp\s*\(a\)/i.test(
+        name,
+      ) || /\bldl\b|\bhdl\b/.test(lower)
+    if (isLipid) return 'Lipid'
+  }
+  return dbCategory
+}
+
+function buildCategorySectionsFromReport(report) {
+  if (!report) return []
+  const byCat = {}
+  const readings = report.health_parameter_readings || []
+  const analysisList = report.health_analysis || []
+  if (readings.length > 0 && analysisList.length === 0) {
+    readings.forEach((r) => {
+      if (!byCat[r.category]) byCat[r.category] = []
+      byCat[r.category].push({
+        name: r.parameter_name,
+        value: r.parameter_value,
+        normal_range: r.normal_range,
+        status: r.status || 'normal',
+      })
+    })
+  } else {
+    analysisList.forEach((a) => {
+      if (a.category === 'Recommendations') return
+      const parameters = a.findings?.parameters || []
+      parameters.forEach((p) => {
+        const cat = a.category || 'Other'
+        if (!byCat[cat]) byCat[cat] = []
+        byCat[cat].push({
+          name: p.name,
+          value: p.value,
+          normal_range: p.normal_range || '',
+          status: p.status || 'normal',
+        })
+      })
+    })
+  }
+  const ordered = CATEGORY_DISPLAY_ORDER.filter((c) => byCat[c]?.length)
+  const rest = Object.keys(byCat).filter((c) => !CATEGORY_DISPLAY_ORDER.includes(c))
+  return [...ordered, ...rest].map((category) => ({
+    category,
+    params: byCat[category],
+  }))
+}
+
+/** Abnormal parameters grouped by display section (Heart, Liver, Kidney, Lipid, …). */
+function getAbnormalAttentionGrouped(report) {
+  const bucketNames = {}
+  const pushName = (bucket, name) => {
+    if (!name) return
+    if (!bucketNames[bucket]) bucketNames[bucket] = []
+    const list = bucketNames[bucket]
+    if (!list.includes(name)) list.push(name)
+  }
+  for (const { category, params } of buildCategorySectionsFromReport(report)) {
+    for (const p of params) {
+      if (p.status !== 'abnormal') continue
+      const bucket = attentionDisplayCategory(category, p.name)
+      pushName(bucket, p.name)
+    }
+  }
+  const out = []
+  for (const cat of ATTENTION_SECTION_ORDER) {
+    const parameters = bucketNames[cat]
+    if (parameters?.length) {
+      out.push({
+        category: cat,
+        emoji: CATEGORY_ICONS[cat] ?? CATEGORY_ICONS.Other,
+        parameters,
+      })
+    }
+  }
+  for (const cat of Object.keys(bucketNames)) {
+    if (ATTENTION_SECTION_ORDER.includes(cat)) continue
+    const parameters = bucketNames[cat]
+    if (parameters?.length) {
+      out.push({
+        category: cat,
+        emoji: CATEGORY_ICONS[cat] ?? CATEGORY_ICONS.Other,
+        parameters,
+      })
+    }
+  }
+  return out
+}
+
+/** Master CSV marker_name often differs from blood_marker_reference canonical name */
 const REMEDY_MARKER_SYNONYMS = {
   'Glucose (Fasting)': ['Fasting Blood Glucose'],
   'Estimated Average Glucose': ['eAG', 'Estimated Average Glucose(eAG)'],
@@ -243,16 +363,40 @@ function HealthReports({
     return () => { cancelled = true }
   }, [])
 
-  // When reports load, default selected report to most recent non-archived
+  // When reports load or Ayurveda member filter changes, keep "View report" on a report that matches that filter (avoids Myself + Vyom’s report on screen).
   useEffect(() => {
     const nonArchived = (reports || []).filter((r) => !r.archived)
     if (nonArchived.length === 0) return
+    const preferredFirst = (() => {
+      if (ayurvedaMemberId === '' || ayurvedaMemberId == null) return nonArchived[0]?.id
+      if (ayurvedaMemberId === 'user') {
+        const mine = nonArchived.find((r) => !r.family_member_id)
+        return mine?.id ?? nonArchived[0].id
+      }
+      const theirs = nonArchived.find((r) => r.family_member_id === ayurvedaMemberId)
+      return theirs?.id ?? nonArchived[0].id
+    })()
+    const reportInMemberFilter = (reportId) => {
+      const r = nonArchived.find((x) => x.id === reportId)
+      if (!r) return false
+      if (ayurvedaMemberId === '' || ayurvedaMemberId == null) return true
+      if (ayurvedaMemberId === 'user') return !r.family_member_id
+      return r.family_member_id === ayurvedaMemberId
+    }
     setSelectedReportIdForView((prev) => {
-      if (!prev) return nonArchived[0].id
-      if (!nonArchived.find((r) => r.id === prev)) return nonArchived[0].id
+      if (!prev) return preferredFirst
+      if (!nonArchived.find((r) => r.id === prev)) return preferredFirst
+      if (!reportInMemberFilter(prev)) return preferredFirst
       return prev
     })
-  }, [reports])
+  }, [reports, ayurvedaMemberId])
+
+  // Keep "View report" aligned with the report chosen in Ayurveda (avoids showing a different person’s report).
+  useEffect(() => {
+    if (!ayurvedaReportId) return
+    const r = (reports || []).find((x) => x.id === ayurvedaReportId)
+    if (r && !r.archived) setSelectedReportIdForView(ayurvedaReportId)
+  }, [ayurvedaReportId, reports])
 
   // Progress bar updates ~10×/s while analysis wait is in progress
   useEffect(() => {
@@ -265,6 +409,11 @@ function HealthReports({
     analyzingReportId && analysisStartTime != null
       ? Math.min(ANALYSIS_TOTAL_MS, Date.now() - analysisStartTime)
       : 0
+
+  const clearAnalysisState = () => {
+    setAnalyzingReportId(null)
+    setAnalysisStartTime(null)
+  }
 
   /** Report list/header label: never show raw YYYY-MM-DD; use "Name 12 January 2026" format only. */
   function getReportDisplayName(report) {
@@ -312,7 +461,7 @@ function HealthReports({
   }
 
   /**
-   * missKind: no_remedy_db = ref OK, abnormal direction known, no ayurveda_remedy_lookup row.
+   * missKind: no_remedy_ref = ref OK, abnormal direction known, no ayurveda_remedy_lookup row.
    * no_lab_reference = parameter name not in blood_marker_reference.
    * other = loading, unparseable value, in-range vs abnormal mismatch, etc.
    */
@@ -380,7 +529,7 @@ function HealthReports({
     if (!bestRemedy || bestScore < REMEDY_FUZZY_MIN_SCORE) {
       return {
         remedy: null,
-        missKind: 'no_remedy_db',
+        missKind: 'no_remedy_ref',
         condition,
         missDetail: null,
       }
@@ -409,9 +558,11 @@ function HealthReports({
       if (error) throw error
       setReports(data || [])
       if (onReportsChange) onReportsChange()
+      return data || []
     } catch (err) {
       console.error('Error loading reports:', err)
       setError('Failed to load reports')
+      return null
     } finally {
       setLoading(false)
     }
@@ -512,6 +663,12 @@ function HealthReports({
     setArchivedExpandedMembers((prev) => ({ ...prev, [memberId]: !prev[memberId] }))
   }
 
+  const unusedCreditForSelectedTier =
+    gratitudeFullAccess || entitlements.some((e) => e.tier === analysisTierChoice)
+
+  /** Paywall: lab extraction / Start Analysis (same credit pool as Generate, consumed when lab succeeds). */
+  const canRunLabAnalysis = unusedCreditForSelectedTier
+
   // Include all reports (archived + non-archived) so Ayurveda analysis can be run on any report
   const allReports = reports || []
   const reportsForAyurveda =
@@ -522,6 +679,19 @@ function HealthReports({
         : allReports.filter((r) => r.family_member_id === ayurvedaMemberId)
 
   const ayurvedaTargetReport = (reports || []).find((r) => r.id === ayurvedaReportId)
+
+  function reportHasParameterSource(report) {
+    if (!report) return false
+    const readings = report.health_parameter_readings || []
+    const analysisList = report.health_analysis || []
+    return readings.length > 0 || analysisList.length > 0
+  }
+
+  /** Abnormal markers from the selected report’s saved readings (or lab analysis rows). Selecting a report does not run any analysis. */
+  const ayurvedaAttentionGrouped =
+    ayurvedaTargetReport && reportHasParameterSource(ayurvedaTargetReport)
+      ? getAbnormalAttentionGrouped(ayurvedaTargetReport)
+      : null
   const canGenerateAyurveda =
     gratitudeFullAccess ||
     unusedCreditForSelectedTier ||
@@ -571,12 +741,6 @@ function HealthReports({
     setShowUpload(true)
     setError('')
   }
-
-  const unusedCreditForSelectedTier =
-    gratitudeFullAccess || entitlements.some((e) => e.tier === analysisTierChoice)
-
-  /** Paywall: lab extraction / Start Analysis (same credit pool as Generate, consumed when lab succeeds). */
-  const canRunLabAnalysis = unusedCreditForSelectedTier
 
   async function consumeOneUnusedEntitlement(tier) {
     const { data: entRow, error: entErr } = await supabase
@@ -680,21 +844,26 @@ function HealthReports({
     }
 
     setGeneratingAyurveda(true)
-    setSelectedReportIdForView(ayurvedaReportId)
     setAnalysisProgressTick(0)
     setAnalyzingReportId(ayurvedaReportId)
     setAnalysisStartTime(Date.now())
     try {
       await new Promise((r) => setTimeout(r, ANALYSIS_MIN_SECONDS * 1000))
-      setAnalyzingReportId(null)
-      setAnalysisStartTime(null)
 
       const tier = gratitudeFullAccess ? TIER_FULL : analysisTierChoice
 
       if (tier === TIER_BASIC) {
+        const patch = { ayurveda_tier: 'basic' }
+        if (targetReport?.analysis_status === 'pending' && reportHasParameterSource(targetReport)) {
+          patch.analysis_status = 'completed'
+          patch.analyzed_at = new Date().toISOString()
+        }
+        if (entitlementId && !targetReport?.lab_analysis_credit_consumed) {
+          patch.lab_analysis_credit_consumed = true
+        }
         const { error: upErr } = await supabase
           .from('health_reports')
-          .update({ ayurveda_tier: 'basic' })
+          .update(patch)
           .eq('id', ayurvedaReportId)
           .eq('user_id', userId)
         if (upErr) throw upErr
@@ -710,6 +879,7 @@ function HealthReports({
         setAnalysisCompleteReportId(ayurvedaReportId)
         await loadReports()
         await fetchEntitlements()
+        clearAnalysisState()
         return
       }
 
@@ -719,9 +889,17 @@ function HealthReports({
           llmProvider: 'claude',
         })
       }
+      const patchFull = { ayurveda_tier: 'full' }
+      if (targetReport?.analysis_status === 'pending' && reportHasParameterSource(targetReport)) {
+        patchFull.analysis_status = 'completed'
+        patchFull.analyzed_at = new Date().toISOString()
+      }
+      if (entitlementId && !targetReport?.lab_analysis_credit_consumed) {
+        patchFull.lab_analysis_credit_consumed = true
+      }
       const { error: upErr2 } = await supabase
         .from('health_reports')
-        .update({ ayurveda_tier: 'full' })
+        .update(patchFull)
         .eq('id', ayurvedaReportId)
         .eq('user_id', userId)
       if (upErr2) throw upErr2
@@ -741,9 +919,9 @@ function HealthReports({
       setAnalysisCompleteReportId(ayurvedaReportId)
       await loadReports()
       await fetchEntitlements()
+      clearAnalysisState()
     } catch (err) {
-      setAnalyzingReportId(null)
-      setAnalysisStartTime(null)
+      clearAnalysisState()
       setAyurvedaMessage('Error: ' + (err?.message || 'Failed to generate'))
     } finally {
       setGeneratingAyurveda(false)
@@ -1096,15 +1274,10 @@ function HealthReports({
       const errorMsg = err.message || 'Unknown error. Check browser console (F12) for details.'
       setError('AI analysis failed: ' + errorMsg)
       alert('Analysis failed: ' + errorMsg + '\n\nCheck browser console (F12) for more details.')
-      setAnalyzingReportId(null)
-      setAnalysisStartTime(null)
+      clearAnalysisState()
     } finally {
       await loadReports()
     }
-  }
-  const clearAnalysisState = () => {
-    setAnalyzingReportId(null)
-    setAnalysisStartTime(null)
   }
 
   const performAIAnalysis = async (fileUrl, filePath, fileType, reportId) => {
@@ -1113,7 +1286,80 @@ function HealthReports({
     })
   }
 
+  /** Test data reports already have readings; no file/AI. User must tap Start lab analysis to mark complete and apply credit. */
+  const finalizeTestDataReportAnalysis = async (report) => {
+    if (!gratitudeFullAccess && !unusedCreditForSelectedTier && !report.lab_analysis_credit_consumed) {
+      setError('Pay for an analysis plan or apply the Gratitude coupon before running lab analysis.')
+      alert('Pay or apply the Gratitude coupon first, then use Start lab analysis.')
+      return
+    }
+
+    const readings = report.health_parameter_readings || []
+    if (readings.length === 0) {
+      setError('This test report has no readings yet.')
+      return
+    }
+
+    const reportId = report.id
+    setAnalyzingReportId(reportId)
+    setAnalysisStartTime(Date.now())
+    setAnalysisProgressTick(0)
+
+    try {
+      const { error: processingErr } = await supabase
+        .from('health_reports')
+        .update({ analysis_status: 'processing' })
+        .eq('id', reportId)
+      if (processingErr) throw new Error('Failed to update status: ' + processingErr.message)
+
+      await new Promise((resolve) => setTimeout(resolve, 800))
+
+      let creditConsumedThisRun = false
+      if (!gratitudeFullAccess && !report.lab_analysis_credit_consumed) {
+        const consumed = await consumeOneUnusedEntitlement(analysisTierChoice)
+        if (!consumed.ok) {
+          throw new Error(consumed.error?.message || 'Could not apply your analysis credit.')
+        }
+        creditConsumedThisRun = true
+      }
+
+      const patch = {
+        analysis_status: 'completed',
+        analyzed_at: new Date().toISOString(),
+      }
+      if (creditConsumedThisRun) patch.lab_analysis_credit_consumed = true
+
+      const { error: doneErr } = await supabase.from('health_reports').update(patch).eq('id', reportId)
+      if (doneErr) throw new Error('Failed to complete report: ' + doneErr.message)
+
+      if (creditConsumedThisRun) await fetchEntitlements()
+
+      setAnalysisCompleteReportId(reportId)
+      clearAnalysisState()
+      await loadReports()
+    } catch (err) {
+      console.error('Test data finalize error:', err)
+      try {
+        await supabase.from('health_reports').update({ analysis_status: 'failed' }).eq('id', reportId)
+      } catch {
+        /* ignore */
+      }
+      setError(err.message || 'Failed to complete test report')
+      alert(err.message || 'Failed to complete test report')
+      clearAnalysisState()
+      await loadReports()
+    }
+  }
+
   const handleManualAnalyze = async (report) => {
+    const isTestDataReport =
+      report.file_type === 'test' || String(report.report_type || '').toLowerCase().includes('test data')
+
+    if (isTestDataReport) {
+      await finalizeTestDataReportAnalysis(report)
+      return
+    }
+
     if (!report.file_path && !report.file_url) {
       setError('Cannot analyze: File path or URL is missing')
       return
@@ -1170,7 +1416,7 @@ function HealthReports({
           .remove([`${userId}/${fileName}`])
       }
 
-      // Delete from database (cascade will delete analysis)
+      // Delete report record (cascade removes related analysis)
       const { error } = await supabase
         .from('health_reports')
         .delete()
@@ -1191,41 +1437,7 @@ function HealthReports({
   const allMembers = [{ id: 'user', name: 'Myself' }, ...(familyMembers || [])]
 
   function getSectionsByCategory(report) {
-    const byCat = {}
-    const readings = report.health_parameter_readings || []
-    const analysisList = report.health_analysis || []
-    if (readings.length > 0 && analysisList.length === 0) {
-      readings.forEach((r) => {
-        if (!byCat[r.category]) byCat[r.category] = []
-        byCat[r.category].push({
-          name: r.parameter_name,
-          value: r.parameter_value,
-          normal_range: r.normal_range,
-          status: r.status || 'normal'
-        })
-      })
-    } else {
-      analysisList.forEach((a) => {
-        if (a.category === 'Recommendations') return
-        const parameters = a.findings?.parameters || []
-        parameters.forEach((p) => {
-          const cat = a.category || 'Other'
-          if (!byCat[cat]) byCat[cat] = []
-          byCat[cat].push({
-            name: p.name,
-            value: p.value,
-            normal_range: p.normal_range || '',
-            status: p.status || 'normal'
-          })
-        })
-      })
-    }
-    const ordered = CATEGORY_DISPLAY_ORDER.filter((c) => byCat[c]?.length)
-    const rest = Object.keys(byCat).filter((c) => !CATEGORY_DISPLAY_ORDER.includes(c))
-    return [...ordered, ...rest].map((category) => ({
-      category,
-      params: byCat[category]
-    }))
+    return buildCategorySectionsFromReport(report)
   }
 
   function renderReportCard(report, isArchived = false) {
@@ -1283,6 +1495,11 @@ function HealthReports({
       {report.analysis_status === 'pending' && !analyzingThis && (
         <div className="pending-analysis">
           <p>⏳ Lab analysis not started yet. Pay or apply the Gratitude coupon above, then run analysis (uses one credit).</p>
+          {report.file_type === 'test' && (
+            <p className="pending-analysis-paywall">
+              Test data: values are already saved. Start lab analysis only marks this report complete and applies your credit — no file is sent to the AI.
+            </p>
+          )}
           {!canRunLabAnalysis && (
             <p className="pending-analysis-paywall">You need an unused plan credit or Gratitude access before Start lab analysis is available.</p>
           )}
@@ -1419,7 +1636,7 @@ function HealthReports({
               )
             })}
             {missedRemedyParams.length > 0 && (() => {
-              const colNoRemedy = missedRemedyParams.filter((r) => r.missKind === 'no_remedy_db')
+              const colNoRemedy = missedRemedyParams.filter((r) => r.missKind === 'no_remedy_ref')
               const colNoRef = missedRemedyParams.filter((r) => r.missKind === 'no_lab_reference')
               const colOther = missedRemedyParams.filter((r) => r.missKind === 'other')
               const renderMissCell = (rows, emptyLabel) => (
@@ -1449,14 +1666,14 @@ function HealthReports({
               )
               return (
                 <div className="report-missed-remedies" role="region" aria-label="Parameters without remedy data">
-                  <h4 className="report-missed-remedies-title">Not covered by remedy database</h4>
+                  <h4 className="report-missed-remedies-title">Not covered by remedy reference</h4>
                   <p className="report-missed-remedies-intro">
                     Abnormal parameters on this report grouped by why no remedy text was shown. Use this to improve reference aliases, remedy CSV rows, or data quality.
                   </p>
                   <div className="report-missed-remedies-grid">
                     <div className="report-missed-col">
                       <h5 className="report-missed-col-head">
-                        No matching Ayurvedic remedy in the database for this marker when the value is high.
+                        No matching Ayurvedic remedy in the reference list for this marker when the value is high.
                         <span className="report-missed-col-head-note"> Same category when the value is low (direction shown per row).</span>
                       </h5>
                       {renderMissCell(colNoRemedy, 'None in this category.')}
@@ -1509,7 +1726,20 @@ function HealthReports({
   return (
     <div className="health-reports">
       <div className="reports-header">
-        <h2>Health Reports & Analysis</h2>
+        <div className="reports-header-row">
+          <h2>Health Reports & Analysis</h2>
+          <button
+            type="button"
+            onClick={() => {
+              if (showUpload || showManualEntry) cancelAddFlow();
+              else setShowAddChoice(!showAddChoice);
+              setError('');
+            }}
+            className="upload-report-btn"
+          >
+            {showAddChoice || showUpload || showManualEntry ? 'Cancel' : '+ Add Report'}
+          </button>
+        </div>
         {analyzingReportId && (
           <div className="analyzing-global-banner" aria-live="polite">
             <AnalysisProgressBar elapsedMs={analysisElapsedMs} />
@@ -1530,17 +1760,6 @@ function HealthReports({
             </button>
           </div>
         )}
-        <button
-          type="button"
-          onClick={() => {
-            if (showUpload || showManualEntry) cancelAddFlow();
-            else setShowAddChoice(!showAddChoice);
-            setError('');
-          }}
-          className="upload-report-btn"
-        >
-          {showAddChoice || showUpload || showManualEntry ? 'Cancel' : '+ Add Report'}
-        </button>
       </div>
 
       {infoNotice && (
@@ -1581,11 +1800,9 @@ function HealthReports({
 
       {activeTab === 'analysis' && (
         <>
+      <div className="ayurveda-layout">
       <div className="ayurveda-generate-section">
         <h3>Ayurveda analysis (paid)</h3>
-        <p className="ayurveda-generate-hint">
-          Choose a plan and pay (or apply the Gratitude coupon). One credit covers <strong>Start lab analysis</strong> on a report (PDF extraction) and then <strong>Generate Ayurveda analysis</strong> for that same report. Full plan includes dietary and lifestyle columns; Basic shows remedies only.
-        </p>
         <p className="ayurveda-context-hint">With AI on, Full plan also runs personalized recommendations. Recommendations use profile context when AI is enabled.</p>
 
         <div className="analysis-tier-cards" role="radiogroup" aria-label="Analysis plan">
@@ -1682,73 +1899,175 @@ function HealthReports({
           <span className="ayurveda-pay-note">Secure checkout via Razorpay (test cards in test mode).</span>
         </div>
 
-        <div className="ayurveda-generate-form">
-          <div className="form-group">
-            <label htmlFor="ayurveda-member">Family member</label>
-            <select
-              id="ayurveda-member"
-              value={ayurvedaMemberId}
-              onChange={(e) => {
-                setAyurvedaMemberId(e.target.value)
-                setAyurvedaReportId('')
-                setAyurvedaMessage('')
-              }}
-              className="form-select"
-            >
-              <option value="">All</option>
-              {allMembers.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
+        <div className="ayurveda-report-selection-block">
+          <div className="ayurveda-select-report-row">
+            <h4 className="ayurveda-select-report-heading">SELECT report for Analysis</h4>
+            <div className="ayurveda-generate-form ayurveda-generate-form--select-only">
+              <div className="form-group">
+                <label htmlFor="ayurveda-member">Family member</label>
+                <select
+                  id="ayurveda-member"
+                  value={ayurvedaMemberId}
+                  onChange={(e) => {
+                    setAyurvedaMemberId(e.target.value)
+                    setAyurvedaReportId('')
+                    setAyurvedaMessage('')
+                  }}
+                  className="form-select"
+                >
+                  <option value="">All</option>
+                  {allMembers.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="ayurveda-report">Report</label>
+                <select
+                  id="ayurveda-report"
+                  value={ayurvedaReportId}
+                  onChange={(e) => {
+                    setAyurvedaReportId(e.target.value)
+                    setAyurvedaMessage('')
+                  }}
+                  className="form-select"
+                >
+                  <option value="">Select report...</option>
+                  {reportsForAyurveda.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {getReportDisplayName(r)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
-          <div className="form-group">
-            <label htmlFor="ayurveda-report">Report</label>
-            <select
-              id="ayurveda-report"
-              value={ayurvedaReportId}
-              onChange={(e) => {
-                setAyurvedaReportId(e.target.value)
-                setAyurvedaMessage('')
-              }}
-              className="form-select"
+          <p className="ayurveda-select-hint">
+            Choosing a member or report only loads abnormal markers in the panel beside this — nothing is generated until you use the button below.
+          </p>
+          <div className="ayurveda-generate-action">
+            <button
+              type="button"
+              onClick={handleGenerateAyurveda}
+              disabled={
+                !ayurvedaReportId ||
+                generatingAyurveda ||
+                reportsForAyurveda.length === 0 ||
+                !canGenerateAyurveda ||
+                !ayurvedaTargetReport ||
+                !reportHasParameterSource(ayurvedaTargetReport)
+              }
+              className="upload-btn ayurveda-generate-btn"
+              title={
+                !ayurvedaReportId || !reportHasParameterSource(ayurvedaTargetReport)
+                  ? 'Select a report that has lab values'
+                  : !canGenerateAyurveda
+                    ? 'Pay, apply coupon, or use a report that already used a credit for lab analysis'
+                    : ''
+              }
             >
-              <option value="">Select report...</option>
-              {reportsForAyurveda.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {getReportDisplayName(r)}
-                </option>
-              ))}
-            </select>
+              {generatingAyurveda ? 'Generating…' : 'Generate Analysis'}
+            </button>
+            <span className="ayurveda-generate-action-note">
+              Ayurveda remedies and guidance run only when you press this — not when you select a report.
+            </span>
           </div>
-          <button
-            type="button"
-            onClick={handleGenerateAyurveda}
-            disabled={
-              !ayurvedaReportId ||
-              generatingAyurveda ||
-              reportsForAyurveda.length === 0 ||
-              !canGenerateAyurveda ||
-              ayurvedaTargetReport?.analysis_status !== 'completed'
-            }
-            className="upload-btn ayurveda-generate-btn"
-            title={
-              ayurvedaTargetReport?.analysis_status !== 'completed'
-                ? 'Complete lab analysis for this report first'
-                : !canGenerateAyurveda
-                  ? 'Pay, apply coupon, or use a report that already used a credit for lab analysis'
-                  : ''
-            }
-          >
-            {generatingAyurveda ? 'Generating...' : 'Generate Ayurveda analysis'}
-          </button>
         </div>
+        {generatingAyurveda && (
+          <div className="ayurveda-generate-progress" aria-live="polite">
+            <p className="ayurveda-generate-progress-title">Preparing your Ayurveda analysis</p>
+            <AnalysisProgressBar elapsedMs={analysisElapsedMs} />
+          </div>
+        )}
         {ayurvedaMessage && (
           <div className={`ayurveda-message ${ayurvedaMessage.startsWith('Error') ? 'ayurveda-message-error' : 'ayurveda-message-success'}`}>
             {ayurvedaMessage}
           </div>
         )}
+      </div>
+
+      <aside className="ayurveda-attention-panel" aria-labelledby="ayurveda-attention-heading">
+        <h3 id="ayurveda-attention-heading" className="ayurveda-attention-title">
+          Parameters that need attention
+        </h3>
+        <p className="ayurveda-attention-lead">
+          Abnormal markers for the report you chose under <strong>SELECT report for Analysis</strong> (from saved lab values). This is a read-only summary —{' '}
+          <strong>no analysis runs</strong> until you tap <strong>Generate Analysis</strong>.
+        </p>
+        {!ayurvedaReportId && (
+          <p className="ayurveda-attention-placeholder">Choose a report under SELECT report for Analysis to see markers that need attention.</p>
+        )}
+        {ayurvedaReportId && ayurvedaTargetReport && !reportHasParameterSource(ayurvedaTargetReport) && (
+          <p className="ayurveda-attention-placeholder">
+            <strong>{getReportDisplayName(ayurvedaTargetReport)}</strong> has no parameter readings yet. Add lab values (upload, manual entry, or test data) first.
+          </p>
+        )}
+        {ayurvedaReportId &&
+          ayurvedaTargetReport &&
+          reportHasParameterSource(ayurvedaTargetReport) &&
+          ayurvedaAttentionGrouped?.length === 0 && (
+            <p className="ayurveda-attention-none">No abnormal parameters were flagged on this report — nothing to highlight here.</p>
+          )}
+        {ayurvedaReportId &&
+          ayurvedaTargetReport &&
+          reportHasParameterSource(ayurvedaTargetReport) &&
+          ayurvedaAttentionGrouped &&
+          ayurvedaAttentionGrouped.length > 0 &&
+          (() => {
+          const attentionSectionByCategory = Object.fromEntries(ayurvedaAttentionGrouped.map((s) => [s.category, s]))
+          const placedCategories = new Set(ATTENTION_PAIR_ROWS.flat().filter(Boolean))
+          const orphanSections = ayurvedaAttentionGrouped.filter((s) => !placedCategories.has(s.category))
+          const orphanRows = []
+          for (let i = 0; i < orphanSections.length; i += 2) {
+            orphanRows.push([orphanSections[i], orphanSections[i + 1] ?? null])
+          }
+          const renderAttentionBlock = (section) => (
+            <section
+              className="ayurveda-attention-section"
+              aria-label={`${section.category} parameters needing attention`}
+            >
+              <div className="ayurveda-attention-section-head">
+                <span className="ayurveda-attention-emoji" aria-hidden>
+                  {section.emoji}
+                </span>
+                <span className="ayurveda-attention-section-title">{section.category}</span>
+              </div>
+              <ul className="ayurveda-attention-param-list">
+                {section.parameters.map((paramName) => (
+                  <li key={`${section.category}-${paramName}`} className="ayurveda-attention-param-item">
+                    {paramName}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )
+          const renderPairRow = (left, right, rowKey) => {
+            if (!left && !right) return null
+            const solo = (left && !right) || (!left && right)
+            return (
+              <div
+                key={rowKey}
+                className={`ayurveda-attention-pair-row${solo ? ' ayurveda-attention-pair-row--solo' : ''}`}
+              >
+                {left && <div className="ayurveda-attention-pair-cell">{renderAttentionBlock(left)}</div>}
+                {right && <div className="ayurveda-attention-pair-cell">{renderAttentionBlock(right)}</div>}
+              </div>
+            )
+          }
+          return (
+            <div className="ayurveda-attention-pairs">
+              {ATTENTION_PAIR_ROWS.map(([leftCat, rightCat], rowIdx) => {
+                const left = leftCat ? attentionSectionByCategory[leftCat] : null
+                const right = rightCat ? attentionSectionByCategory[rightCat] : null
+                return renderPairRow(left, right, `fixed-${rowIdx}`)
+              })}
+              {orphanRows.map(([a, b], i) => renderPairRow(a, b, `extra-${i}`))}
+            </div>
+          )
+        })()}
+      </aside>
       </div>
 
       <div className="report-analysis-single">
@@ -1759,7 +2078,15 @@ function HealthReports({
               <select
                 id="report-view-select"
                 value={selectedReportIdForView || ''}
-                onChange={(e) => setSelectedReportIdForView(e.target.value || null)}
+                onChange={(e) => {
+                  const id = e.target.value || null
+                  setSelectedReportIdForView(id)
+                  if (id && reportsForAyurveda.some((r) => r.id === id)) {
+                    setAyurvedaReportId(id)
+                  } else if (id && !reportsForAyurveda.some((r) => r.id === id)) {
+                    setAyurvedaReportId('')
+                  }
+                }}
                 className="form-select report-view-select"
               >
                 {nonArchivedReports.map((r) => (
@@ -1903,6 +2230,11 @@ function HealthReports({
                 onChange={(e) => setReportDate(e.target.value)}
                 required
               />
+              <span
+                className={`report-date-readable-display${reportDate ? '' : ' report-date-readable-display-placeholder'}`}
+              >
+                {reportDate ? formatDateDMY(reportDate) : 'Day month year'}
+              </span>
               <small className="form-hint">When the test was done (so we can compare over time)</small>
             </div>
 
@@ -1997,6 +2329,11 @@ function HealthReports({
               value={manualReportDate}
               onChange={(e) => setManualReportDate(e.target.value)}
             />
+            <span
+              className={`report-date-readable-display${manualReportDate ? '' : ' report-date-readable-display-placeholder'}`}
+            >
+              {manualReportDate ? formatDateDMY(manualReportDate) : 'Day month year'}
+            </span>
           </div>
           <div className="form-group">
             <label>Report name</label>
