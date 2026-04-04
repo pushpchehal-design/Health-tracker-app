@@ -1,4 +1,4 @@
--- Gratitude coupon: full report access for users who redeem the code (Edge Function + app read).
+-- Optional legacy table; Gratitude is stored in Auth app_metadata (see grant-analysis-coupon). Safe to skip.
 CREATE TABLE IF NOT EXISTS public.user_analysis_gratitude (
   user_id UUID PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
   granted_at TIMESTAMPTZ NOT NULL DEFAULT now()
