@@ -23,15 +23,38 @@ const CATEGORY_ICONS = {
   Other: '•'
 }
 
-/** Three phases × 5s = 15s minimum before analysis results / backend call (Generate Ayurveda, Start Analysis). */
-const ANALYSIS_PHASE_SECONDS = 5
-const ANALYSIS_MIN_SECONDS = ANALYSIS_PHASE_SECONDS * 3
+/** Minimum wait before calling analysis (upload / manual analyze / Generate Ayurveda). */
+const ANALYSIS_TOTAL_MS = 20000
+const ANALYSIS_MIN_SECONDS = ANALYSIS_TOTAL_MS / 1000
 
-function getAnalysisPhaseLabel(elapsedSeconds) {
-  const e = Math.max(0, Math.floor(Number(elapsedSeconds) || 0))
-  if (e < ANALYSIS_PHASE_SECONDS) return 'Reading data…'
-  if (e < ANALYSIS_PHASE_SECONDS * 2) return 'Analysing parameters…'
-  return 'Generating analysis…'
+const ANALYSIS_PHASE_LABELS = ['Reading data', 'Analysing data using AI', 'Generating report']
+
+function getAnalysisPhaseFromMs(elapsedMs) {
+  const ms = Math.max(0, Math.min(ANALYSIS_TOTAL_MS, Number(elapsedMs) || 0))
+  const third = ANALYSIS_TOTAL_MS / 3
+  if (ms < third) return { label: ANALYSIS_PHASE_LABELS[0], fillPct: (ms / ANALYSIS_TOTAL_MS) * 100 }
+  if (ms < third * 2) return { label: ANALYSIS_PHASE_LABELS[1], fillPct: (ms / ANALYSIS_TOTAL_MS) * 100 }
+  return { label: ANALYSIS_PHASE_LABELS[2], fillPct: (ms / ANALYSIS_TOTAL_MS) * 100 }
+}
+
+function AnalysisProgressBar({ elapsedMs }) {
+  const { label, fillPct } = getAnalysisPhaseFromMs(elapsedMs)
+  const pct = Math.min(100, Math.round(fillPct))
+  return (
+    <div className="analysis-progress-wrap">
+      <p className="analysis-progress-phase">{label}</p>
+      <div
+        className="analysis-progress-track"
+        role="progressbar"
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={label}
+      >
+        <div className="analysis-progress-fill" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  )
 }
 
 function HealthReports({
@@ -54,7 +77,7 @@ function HealthReports({
   const [error, setError] = useState('')
   const [analyzingReportId, setAnalyzingReportId] = useState(null)
   const [analysisStartTime, setAnalysisStartTime] = useState(null)
-  const [analysisElapsedSeconds, setAnalysisElapsedSeconds] = useState(0)
+  const [, setAnalysisProgressTick] = useState(0)
 
   const [showAddChoice, setShowAddChoice] = useState(false)
   const [showManualEntry, setShowManualEntry] = useState(false)
@@ -76,6 +99,7 @@ function HealthReports({
   const [couponInput, setCouponInput] = useState('')
   const [couponMessage, setCouponMessage] = useState('')
   const [couponSubmitting, setCouponSubmitting] = useState(false)
+  const [gratitudeFullAccess, setGratitudeFullAccess] = useState(false)
   const [activeTab, setActiveTab] = useState('analysis') // 'analysis' | 'archived'
   const [selectedReportIdForView, setSelectedReportIdForView] = useState(null) // single report to show in Report Analysis tab
   const [archivedExpandedMembers, setArchivedExpandedMembers] = useState({}) // { memberId: true } for expanded sections
@@ -86,19 +110,30 @@ function HealthReports({
   const fetchEntitlements = useCallback(async () => {
     if (!userId || !supabase) {
       setEntitlements([])
+      setGratitudeFullAccess(false)
       return
     }
     try {
-      const { data, error } = await supabase
-        .from('analysis_entitlements')
-        .select('id, tier, used_at, created_at')
-        .is('used_at', null)
-        .order('created_at', { ascending: true })
-      if (error) throw error
-      setEntitlements(data || [])
+      const [entRes, gratRes] = await Promise.all([
+        supabase
+          .from('analysis_entitlements')
+          .select('id, tier, used_at, created_at')
+          .is('used_at', null)
+          .order('created_at', { ascending: true }),
+        supabase.from('user_analysis_gratitude').select('user_id').eq('user_id', userId).maybeSingle(),
+      ])
+      if (entRes.error) throw entRes.error
+      setEntitlements(entRes.data || [])
+      if (gratRes.error && gratRes.error.code !== 'PGRST116') {
+        console.warn('user_analysis_gratitude (optional):', gratRes.error.message)
+        setGratitudeFullAccess(false)
+      } else {
+        setGratitudeFullAccess(!!gratRes.data?.user_id)
+      }
     } catch (e) {
       console.warn('Could not load analysis entitlements (run supabase-analysis-entitlements.sql if missing):', e?.message || e)
       setEntitlements([])
+      setGratitudeFullAccess(false)
     }
   }, [userId])
 
@@ -136,14 +171,17 @@ function HealthReports({
     })
   }, [reports])
 
-  // Ticking clock while analysis is in progress (so UI updates every second)
+  // Progress bar updates ~10×/s while analysis wait is in progress
   useEffect(() => {
     if (!analyzingReportId || analysisStartTime == null) return
-    const tick = () => setAnalysisElapsedSeconds(Math.floor((Date.now() - analysisStartTime) / 1000))
-    tick()
-    const id = setInterval(tick, 1000)
+    const id = setInterval(() => setAnalysisProgressTick((n) => n + 1), 100)
     return () => clearInterval(id)
   }, [analyzingReportId, analysisStartTime])
+
+  const analysisElapsedMs =
+    analyzingReportId && analysisStartTime != null
+      ? Math.min(ANALYSIS_TOTAL_MS, Date.now() - analysisStartTime)
+      : 0
 
   // Processing reports on load: mark completed in background only (no banner). Banner starts only on "Generate Ayurveda analysis" click.
   useEffect(() => {
@@ -395,15 +433,23 @@ function HealthReports({
     setError('')
   }
 
-  const unusedCreditForSelectedTier = entitlements.some((e) => e.tier === analysisTierChoice)
+  const unusedCreditForSelectedTier =
+    gratitudeFullAccess || entitlements.some((e) => e.tier === analysisTierChoice)
 
   const handleApplyAnalysisCoupon = async () => {
     if (!supabase || !userId) return
     setCouponSubmitting(true)
     setCouponMessage('')
     try {
-      await grantAnalysisCoupon(supabase, analysisTierChoice, couponInput)
-      setCouponMessage('Coupon applied — 100% off. You can run Generate once for this plan.')
+      const data = await grantAnalysisCoupon(supabase, analysisTierChoice, couponInput)
+      if (data?.gratitudeFullAccess) {
+        setGratitudeFullAccess(true)
+        setCouponMessage(
+          'Coupon applied — full access enabled for all your reports (all parameters, remedies, dietary & lifestyle columns).',
+        )
+      } else {
+        setCouponMessage('Coupon applied — 100% off. You can run Generate once for this plan.')
+      }
       await fetchEntitlements()
     } catch (err) {
       setCouponMessage(err?.message || 'Could not apply coupon')
@@ -443,24 +489,27 @@ function HealthReports({
     if (!userId || !ayurvedaReportId || generatingAyurveda) return
     setAyurvedaMessage('')
 
-    const { data: entRow, error: entErr } = await supabase
-      .from('analysis_entitlements')
-      .select('id')
-      .eq('tier', analysisTierChoice)
-      .is('used_at', null)
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle()
+    let entitlementId = null
+    if (!gratitudeFullAccess) {
+      const { data: entRow, error: entErr } = await supabase
+        .from('analysis_entitlements')
+        .select('id')
+        .eq('tier', analysisTierChoice)
+        .is('used_at', null)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle()
 
-    if (entErr || !entRow?.id) {
-      setAyurvedaMessage('Error: Pay for the selected plan first, then generate.')
-      return
+      if (entErr || !entRow?.id) {
+        setAyurvedaMessage('Error: Pay for the selected plan first, then generate.')
+        return
+      }
+      entitlementId = entRow.id
     }
-    const entitlementId = entRow.id
 
     setGeneratingAyurveda(true)
     setSelectedReportIdForView(ayurvedaReportId)
-    setAnalysisElapsedSeconds(0)
+    setAnalysisProgressTick(0)
     setAnalyzingReportId(ayurvedaReportId)
     setAnalysisStartTime(Date.now())
     try {
@@ -468,7 +517,7 @@ function HealthReports({
       setAnalyzingReportId(null)
       setAnalysisStartTime(null)
 
-      const tier = analysisTierChoice
+      const tier = gratitudeFullAccess ? TIER_FULL : analysisTierChoice
 
       if (tier === TIER_BASIC) {
         const { error: upErr } = await supabase
@@ -477,12 +526,14 @@ function HealthReports({
           .eq('id', ayurvedaReportId)
           .eq('user_id', userId)
         if (upErr) throw upErr
-        const { error: useErr } = await supabase
-          .from('analysis_entitlements')
-          .update({ used_at: new Date().toISOString() })
-          .eq('id', entitlementId)
-          .is('used_at', null)
-        if (useErr) throw useErr
+        if (entitlementId) {
+          const { error: useErr } = await supabase
+            .from('analysis_entitlements')
+            .update({ used_at: new Date().toISOString() })
+            .eq('id', entitlementId)
+            .is('used_at', null)
+          if (useErr) throw useErr
+        }
         setAyurvedaMessage('Ayurvedic remedies are shown for abnormal parameters. Dietary and lifestyle guidance is not included in this plan.')
         setAnalysisCompleteReportId(ayurvedaReportId)
         await loadReports()
@@ -502,12 +553,14 @@ function HealthReports({
         .eq('id', ayurvedaReportId)
         .eq('user_id', userId)
       if (upErr2) throw upErr2
-      const { error: useErr2 } = await supabase
-        .from('analysis_entitlements')
-        .update({ used_at: new Date().toISOString() })
-        .eq('id', entitlementId)
-        .is('used_at', null)
-      if (useErr2) throw useErr2
+      if (entitlementId) {
+        const { error: useErr2 } = await supabase
+          .from('analysis_entitlements')
+          .update({ used_at: new Date().toISOString() })
+          .eq('id', entitlementId)
+          .is('used_at', null)
+        if (useErr2) throw useErr2
+      }
       setAyurvedaMessage(
         aiEnabled
           ? 'Full analysis complete. Scroll to the report for remedies, dietary, lifestyle, and AI notes where available.'
@@ -762,7 +815,7 @@ function HealthReports({
     const startTime = Date.now()
     setAnalyzingReportId(reportId)
     setAnalysisStartTime(startTime)
-    setAnalysisElapsedSeconds(0)
+    setAnalysisProgressTick(0)
     console.log('=== Starting Analysis ===')
     console.log('Report ID:', reportId)
     console.log('File Path:', filePath)
@@ -1011,18 +1064,14 @@ function HealthReports({
         (report.analysis_status === 'completed' && analyzingThis) ||
         (report.analysis_status === 'pending' && analyzingThis)) && (
         <div className="analyzing">
-          <p className="analyzing-message">{getAnalysisPhaseLabel(analysisElapsedSeconds)}</p>
-          {analyzingThis && (
-            <div className="analyzing-timer" aria-live="polite">
-              <span className="analyzing-clock">⏱</span>
-              <span className="analyzing-elapsed">{analysisElapsedSeconds}s</span>
-            </div>
-          )}
+          {analyzingThis && <AnalysisProgressBar elapsedMs={analysisElapsedMs} />}
         </div>
       )}
       {report.analysis_status === 'completed' && !analyzingThis && (() => {
         const ayurvedaUnlocked =
-          report.ayurveda_tier === 'basic' || report.ayurveda_tier === 'full'
+          gratitudeFullAccess ||
+          report.ayurveda_tier === 'basic' ||
+          report.ayurveda_tier === 'full'
         let sections = getSectionsByCategory(report)
         if (!ayurvedaUnlocked) {
           sections = sections
@@ -1049,7 +1098,7 @@ function HealthReports({
             </div>
           )
         }
-        const showDietLifestyle = report.ayurveda_tier === 'full'
+        const showDietLifestyle = gratitudeFullAccess || report.ayurveda_tier === 'full'
         const showRemedyColumns = ayurvedaUnlocked
         return (
           <div className="analysis-results analysis-results-by-category">
@@ -1059,7 +1108,7 @@ function HealthReports({
                 <strong>not shown</strong> until you pay (or use an eligible coupon) and run <strong>Generate Ayurveda analysis</strong> above. This applies to uploaded reports and test data alike.
               </div>
             )}
-            {report.ayurveda_tier === 'basic' && (
+            {report.ayurveda_tier === 'basic' && !gratitudeFullAccess && (
               <p className="analysis-tier-banner analysis-tier-banner-basic">
                 Showing <strong>remedies only</strong> (Basic plan). Upgrade to Full (₹249) for dietary and lifestyle columns on your next analysis.
               </p>
@@ -1151,12 +1200,8 @@ function HealthReports({
       <div className="reports-header">
         <h2>Health Reports & Analysis</h2>
         {analyzingReportId && (
-          <div className="analyzing-global-banner">
-            <p className="analyzing-message">{getAnalysisPhaseLabel(analysisElapsedSeconds)}</p>
-            <div className="analyzing-timer" aria-live="polite">
-              <span className="analyzing-clock">⏱</span>
-              <span className="analyzing-elapsed">{analysisElapsedSeconds}s</span>
-            </div>
+          <div className="analyzing-global-banner" aria-live="polite">
+            <AnalysisProgressBar elapsedMs={analysisElapsedMs} />
           </div>
         )}
         {analysisCompleteReportId && (
@@ -1251,7 +1296,11 @@ function HealthReports({
         </div>
 
         <p className="analysis-credit-status">
-          {unusedCreditForSelectedTier ? (
+          {gratitudeFullAccess ? (
+            <span className="analysis-credit-ok">
+              Gratitude access active — all reports show full parameters, remedies, dietary, and lifestyle columns. Generate below is optional (e.g. for AI notes when AI is on).
+            </span>
+          ) : unusedCreditForSelectedTier ? (
             <span className="analysis-credit-ok">You have an unused credit for this plan — you can generate once.</span>
           ) : (
             <span className="analysis-credit-missing">No unused credit for this plan — apply a coupon or pay below first.</span>
@@ -1263,7 +1312,7 @@ function HealthReports({
             Coupon code
             <input
               id="analysis-coupon-input"
-              type="text"
+              type="password"
               className="analysis-coupon-input"
               value={couponInput}
               onChange={(e) => {

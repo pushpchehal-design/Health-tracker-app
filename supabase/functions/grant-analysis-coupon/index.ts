@@ -63,16 +63,8 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}))
-    const tier = String(body.tier || '').toLowerCase()
     const codeRaw = String(body.code ?? '')
     const codeNorm = codeRaw.trim().toLowerCase()
-
-    if (tier !== 'basic' && tier !== 'full') {
-      return new Response(JSON.stringify({ error: 'Invalid tier' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      })
-    }
 
     if (codeNorm !== COUPON_NORMALIZED) {
       return new Response(JSON.stringify({ error: 'Invalid coupon code' }), {
@@ -81,30 +73,28 @@ serve(async (req) => {
       })
     }
 
-    const suffix = crypto.randomUUID()
-    const orderId = `coupon_gratitude_${suffix}`
-    const paymentId = `coupon_pay_${suffix}`
+    // Gratitude: unlimited full access for all reports (not a single-use entitlement).
+    const { error: gratitudeErr } = await supabaseAdmin.from('user_analysis_gratitude').upsert(
+      { user_id: userId, granted_at: new Date().toISOString() },
+      { onConflict: 'user_id' },
+    )
 
-    const { data: inserted, error: insErr } = await supabaseAdmin
-      .from('analysis_entitlements')
-      .insert({
-        user_id: userId,
-        tier,
-        razorpay_order_id: orderId,
-        razorpay_payment_id: paymentId,
-      })
-      .select('id')
-      .single()
-
-    if (insErr) {
-      console.error('grant-analysis-coupon insert:', insErr)
-      return new Response(JSON.stringify({ error: insErr.message || 'Could not apply coupon' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      })
+    if (gratitudeErr) {
+      console.error('grant-analysis-coupon gratitude upsert:', gratitudeErr)
+      return new Response(
+        JSON.stringify({
+          error:
+            gratitudeErr.message ||
+            'Could not apply coupon. Run supabase-user-analysis-gratitude.sql in the SQL editor if this table is missing.',
+        }),
+        {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        },
+      )
     }
 
-    return new Response(JSON.stringify({ ok: true, entitlementId: inserted?.id, tier }), {
+    return new Response(JSON.stringify({ ok: true, gratitudeFullAccess: true }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     })
