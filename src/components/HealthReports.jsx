@@ -23,6 +23,63 @@ const CATEGORY_ICONS = {
   Other: '•'
 }
 
+/** Master CSV / DB marker_name often differs from blood_marker_reference canonical name */
+const REMEDY_MARKER_SYNONYMS = {
+  'Glucose (Fasting)': ['Fasting Blood Glucose'],
+  'Estimated Average Glucose': ['eAG', 'Estimated Average Glucose(eAG)'],
+  'Fasting Insulin': ['Serum Insulin', 'Insulin Fasting'],
+  'Folate': ['Folic Acid', 'Serum Folate'],
+  'Free T3': ['T3 (Triiodothyronine)', 'FT3', 'Triiodothyronine Free'],
+  'Free T4': ['T4 (Thyroxine)', 'FT4', 'Free Thyroxine'],
+  'Total T3': ['T3 (Triiodothyronine)', 'T3', 'T3 Total'],
+  'Total T4': ['T4 (Thyroxine)', 'T4', 'T4 Total'],
+  TSH: ['TSH (Thyroid Stimulating Hormone)', 'Thyroid Stimulating Hormone'],
+  Basophils: ['Basophils%', 'Basophils %'],
+  'Basophils (Abs)': ['Basophils Abs', 'Basophils (ABS)'],
+  PlateletCrit: ['PCT', 'Platelet Crit'],
+  PLCR: ['Platelet-Large Cell Ratio', 'PLCR (Platelet-Large Cell Ratio)'],
+  LDH: ['LDH (Lactate Dehydrogenase)', 'Lactate Dehydrogenase'],
+  'Apo B/Apo A1 Ratio': ['APO-B/APO-A1 Ratio', 'APO B/APO A1', 'ApoB/ApoA1'],
+  'LDL/HDL Ratio': ['LDL/HDL Ratio', 'LDL / HDL Ratio'],
+}
+
+const REMEDY_FUZZY_MIN_SCORE = 200
+
+function normalizeRemedyKey(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function stripParenLower(s) {
+  const t = normalizeRemedyKey(s)
+  const i = t.indexOf('(')
+  return i === -1 ? t : t.slice(0, i).trim()
+}
+
+function scoreRemedyNameMatch(expandedLowerNames, remedyMarkerRaw) {
+  const rm = normalizeRemedyKey(remedyMarkerRaw)
+  if (!rm || rm.length < 2) return 0
+  let best = 0
+  for (const mn of expandedLowerNames) {
+    const n = mn
+    if (!n || n.length < 2) continue
+    if (rm === n) return 10000 + n.length
+    if (rm.includes(n) || n.includes(rm)) {
+      const L = Math.min(n.length, rm.length)
+      if (L >= 3) best = Math.max(best, L * 100)
+    }
+    const rmb = stripParenLower(rm)
+    const nb = stripParenLower(n)
+    if (rmb.length >= 2 && nb.length >= 2 && (rmb === nb || rmb.includes(nb) || nb.includes(rmb))) {
+      const L = Math.min(rmb.length, nb.length)
+      if (L >= 3) best = Math.max(best, L * 90)
+    }
+  }
+  return best
+}
+
 /** Minimum wait before calling analysis (upload / manual analyze / Generate Ayurveda). */
 const ANALYSIS_TOTAL_MS = 20000
 const ANALYSIS_MIN_SECONDS = ANALYSIS_TOTAL_MS / 1000
@@ -237,12 +294,20 @@ function HealthReports({
     return best
   }
 
-  function getRemedyForParam(param, reference, remedyList) {
-    if (param.status !== 'abnormal' || !reference?.length || !remedyList?.length) return null
+  /** Fuzzy match remedy CSV marker_name to blood_marker_reference canonical + aliases + REMEDY_MARKER_SYNONYMS. */
+  function resolveRemedyForAbnormalParam(param, reference, remedyList) {
+    if (param.status !== 'abnormal') return { remedy: null, missReason: null }
+    if (!reference?.length || !remedyList?.length) {
+      return { remedy: null, missReason: 'Reference or remedy data is still loading or unavailable.' }
+    }
     const refRow = findBloodRefRowForParamName(param.name, reference)
     const canonical = refRow?.name
-    if (!canonical) return null
-    const matchNames = [canonical, ...(refRow.aliases || [])].map((n) => (n || '').trim().toLowerCase()).filter(Boolean)
+    if (!canonical) {
+      return { remedy: null, missReason: 'This parameter name does not match any entry in the lab reference ranges.' }
+    }
+    const matchNames = [canonical, ...(refRow.aliases || [])].map((n) => normalizeRemedyKey(n)).filter(Boolean)
+    const extra = REMEDY_MARKER_SYNONYMS[canonical] || []
+    const expandedLowerNames = [...new Set([...matchNames, ...extra.map((e) => normalizeRemedyKey(e))])]
     const numFromStr = (s) => {
       const m = String(s || '').match(/-?\d+\.?\d*(?:e[+-]?\d+)?/i)
       return m ? parseFloat(m[0]) : NaN
@@ -259,11 +324,39 @@ function HealthReports({
     const condition = !Number.isNaN(valNum) && !Number.isNaN(low) && !Number.isNaN(high)
       ? (valNum < low ? 'low' : valNum > high ? 'high' : null)
       : null
-    if (!condition) return null
-    const remedy = remedyList.find(
-      (r) => matchNames.includes((r.marker_name || '').trim().toLowerCase()) && r.condition === condition
-    )
-    return remedy ? { remedy_text: remedy.remedy_text, lifestyle_modification: remedy.lifestyle_modification, dietary_recommendations: remedy.dietary_recommendations, dosage_notes: remedy.dosage_notes } : null
+    if (!condition) {
+      return {
+        remedy: null,
+        missReason: Number.isNaN(valNum)
+          ? 'The value could not be read as a number.'
+          : 'The value could not be classified as low or high from the available normal range (or it matches normal limits while still flagged abnormal).',
+      }
+    }
+    let bestRemedy = null
+    let bestScore = 0
+    for (const r of remedyList) {
+      if (r.condition !== condition) continue
+      const score = scoreRemedyNameMatch(expandedLowerNames, r.marker_name)
+      if (score > bestScore) {
+        bestScore = score
+        bestRemedy = r
+      }
+    }
+    if (!bestRemedy || bestScore < REMEDY_FUZZY_MIN_SCORE) {
+      return {
+        remedy: null,
+        missReason: `No matching Ayurvedic remedy in the database for this marker when the value is ${condition}.`,
+      }
+    }
+    return {
+      remedy: {
+        remedy_text: bestRemedy.remedy_text,
+        lifestyle_modification: bestRemedy.lifestyle_modification,
+        dietary_recommendations: bestRemedy.dietary_recommendations,
+        dosage_notes: bestRemedy.dosage_notes,
+      },
+      missReason: null,
+    }
   }
 
   const loadReports = async () => {
@@ -1102,6 +1195,19 @@ function HealthReports({
         }
         const showDietLifestyle = gratitudeFullAccess || report.ayurveda_tier === 'full'
         const showRemedyColumns = ayurvedaUnlocked
+        const missedRemedyParams = showRemedyColumns
+          ? sections.flatMap(({ category, params }) =>
+              params
+                .filter((p) => p.status === 'abnormal')
+                .map((p) => {
+                  const param = { name: p.name, value: p.value, normal_range: p.normal_range, status: 'abnormal' }
+                  const { remedy, missReason } = resolveRemedyForAbnormalParam(param, bloodMarkerReference, remedyLookup)
+                  if (remedy) return null
+                  return { category, name: p.name, value: p.value, missReason }
+                })
+                .filter(Boolean)
+            )
+          : []
         return (
           <div className="analysis-results analysis-results-by-category">
             {!ayurvedaUnlocked && (
@@ -1138,7 +1244,7 @@ function HealthReports({
                           const param = { name: p.name, value: p.value, normal_range: p.normal_range, status: p.status }
                           const remedy =
                             showRemedyColumns && p.status === 'abnormal'
-                              ? getRemedyForParam(param, bloodMarkerReference, remedyLookup)
+                              ? resolveRemedyForAbnormalParam(param, bloodMarkerReference, remedyLookup).remedy
                               : null
                           return (
                             <tr key={idx} className={`report-format-row report-format-row-${p.status || 'normal'}`}>
@@ -1166,6 +1272,26 @@ function HealthReports({
                 </div>
               )
             })}
+            {missedRemedyParams.length > 0 && (
+              <div className="report-missed-remedies" role="region" aria-label="Parameters without remedy data">
+                <h4 className="report-missed-remedies-title">Not covered by remedy database</h4>
+                <p className="report-missed-remedies-intro">
+                  The following abnormal parameters were flagged on this report, but the application did not find matching Ayurvedic remedy rows (name mismatch or missing data). Use this list to improve coverage.
+                </p>
+                <ul className="report-missed-remedies-list">
+                  {missedRemedyParams.map((row, i) => (
+                    <li key={`${row.name}-${i}`}>
+                      <span className="report-missed-name">{row.name}</span>
+                      {row.category && <span className="report-missed-cat">{row.category}</span>}
+                      {row.value != null && row.value !== '' && (
+                        <span className="report-missed-val">Value: {row.value}</span>
+                      )}
+                      {row.missReason && <span className="report-missed-reason">{row.missReason}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )
       })()}

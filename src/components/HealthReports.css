@@ -1516,6 +1516,70 @@
   border-radius: 4px;
 }
 
+.report-missed-remedies {
+  margin-top: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(202, 138, 4, 0.45);
+  border-radius: 10px;
+}
+
+.report-missed-remedies-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.05rem;
+  color: var(--app-text);
+}
+
+.report-missed-remedies-intro {
+  margin: 0 0 1rem 0;
+  font-size: 0.875rem;
+  color: var(--app-text-muted);
+  line-height: 1.5;
+}
+
+.report-missed-remedies-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--app-text);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.report-missed-remedies-list li {
+  margin-bottom: 0.75rem;
+}
+
+.report-missed-remedies-list li:last-child {
+  margin-bottom: 0;
+}
+
+.report-missed-name {
+  display: block;
+  font-weight: 600;
+}
+
+.report-missed-cat {
+  display: inline-block;
+  margin-right: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--app-text-muted);
+}
+
+.report-missed-val {
+  display: inline-block;
+  margin-right: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--app-text-muted);
+}
+
+.report-missed-reason {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.8rem;
+  color: var(--app-text-soft);
+  font-style: italic;
+}
+
 @media (max-width: 768px) {
   .form-row {
     grid-template-columns: 1fr;
