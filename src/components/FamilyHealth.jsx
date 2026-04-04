@@ -503,7 +503,8 @@ function FamilyHealth({ userId, userProfile, familyMembers }) {
             file_url: null,
             file_type: 'test',
             report_date: testDataDate,
-            analysis_status: 'processing'
+            analysis_status: 'completed',
+            lab_analysis_credit_consumed: true,
           })
           .select('id')
           .single()

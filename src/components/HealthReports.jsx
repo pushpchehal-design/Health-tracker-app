@@ -156,6 +156,7 @@ function HealthReports({
   const [selectedMember, setSelectedMember] = useState('')
   const [reportDate, setReportDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [error, setError] = useState('')
+  const [infoNotice, setInfoNotice] = useState('')
   const [analyzingReportId, setAnalyzingReportId] = useState(null)
   const [analysisStartTime, setAnalysisStartTime] = useState(null)
   const [, setAnalysisProgressTick] = useState(0)
@@ -264,19 +265,6 @@ function HealthReports({
     analyzingReportId && analysisStartTime != null
       ? Math.min(ANALYSIS_TOTAL_MS, Date.now() - analysisStartTime)
       : 0
-
-  // Processing reports on load: mark completed in background only (no banner). Banner starts only on "Generate Ayurveda analysis" click.
-  useEffect(() => {
-    const processing = (reports || []).filter((r) => r.analysis_status === 'processing')
-    if (processing.length === 0) return
-    const ids = processing.map((r) => r.id)
-    ;(async () => {
-      for (const id of ids) {
-        await supabase.from('health_reports').update({ analysis_status: 'completed' }).eq('id', id)
-      }
-      await loadReports()
-    })()
-  }, [reports])
 
   /** Report list/header label: never show raw YYYY-MM-DD; use "Name 12 January 2026" format only. */
   function getReportDisplayName(report) {
@@ -533,6 +521,12 @@ function HealthReports({
         ? allReports.filter((r) => !r.family_member_id)
         : allReports.filter((r) => r.family_member_id === ayurvedaMemberId)
 
+  const ayurvedaTargetReport = (reports || []).find((r) => r.id === ayurvedaReportId)
+  const canGenerateAyurveda =
+    gratitudeFullAccess ||
+    unusedCreditForSelectedTier ||
+    !!(ayurvedaTargetReport && ayurvedaTargetReport.lab_analysis_credit_consumed)
+
   const loadMarkersForCategory = async (category) => {
     const { data } = await supabase
       .from('blood_marker_reference')
@@ -581,6 +575,28 @@ function HealthReports({
   const unusedCreditForSelectedTier =
     gratitudeFullAccess || entitlements.some((e) => e.tier === analysisTierChoice)
 
+  /** Paywall: lab extraction / Start Analysis (same credit pool as Generate, consumed when lab succeeds). */
+  const canRunLabAnalysis = unusedCreditForSelectedTier
+
+  async function consumeOneUnusedEntitlement(tier) {
+    const { data: entRow, error: entErr } = await supabase
+      .from('analysis_entitlements')
+      .select('id')
+      .eq('tier', tier)
+      .is('used_at', null)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    if (entErr || !entRow?.id) return { ok: false, error: entErr || new Error('No unused entitlement') }
+    const { error: useErr } = await supabase
+      .from('analysis_entitlements')
+      .update({ used_at: new Date().toISOString() })
+      .eq('id', entRow.id)
+      .is('used_at', null)
+    if (useErr) return { ok: false, error: useErr }
+    return { ok: true, id: entRow.id }
+  }
+
   const handleApplyAnalysisCoupon = async () => {
     if (!supabase || !userId) return
     setCouponSubmitting(true)
@@ -590,10 +606,12 @@ function HealthReports({
       if (data?.gratitudeFullAccess) {
         setGratitudeCouponOptimistic(true)
         await supabase.auth.refreshSession()
+        setInfoNotice('')
         setCouponMessage(
           'Coupon applied — full access enabled for all your reports (all parameters, remedies, dietary & lifestyle columns).',
         )
       } else {
+        setInfoNotice('')
         setCouponMessage('Coupon applied — 100% off. You can run Generate once for this plan.')
       }
       await fetchEntitlements()
@@ -620,8 +638,9 @@ function HealthReports({
         return
       }
       await verifyAnalysisPayment(supabase, paymentResponse)
+      setInfoNotice('')
       setAyurvedaMessage(
-        `Payment confirmed for ${analysisTierChoice === TIER_FULL ? 'Full analysis (₹249)' : 'Remedies only (₹89)'}. You can run Generate once.`
+        `Payment confirmed for ${analysisTierChoice === TIER_FULL ? 'Full analysis (₹249)' : 'Remedies only (₹89)'}. Use Start lab analysis on your report, then Generate Ayurveda (one credit covers both).`
       )
       await fetchEntitlements()
     } catch (err) {
@@ -635,22 +654,29 @@ function HealthReports({
     if (!userId || !ayurvedaReportId || generatingAyurveda) return
     setAyurvedaMessage('')
 
+    const targetReport = (reports || []).find((r) => r.id === ayurvedaReportId)
     let entitlementId = null
     if (!gratitudeFullAccess) {
-      const { data: entRow, error: entErr } = await supabase
-        .from('analysis_entitlements')
-        .select('id')
-        .eq('tier', analysisTierChoice)
-        .is('used_at', null)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle()
+      if (targetReport?.lab_analysis_credit_consumed) {
+        entitlementId = null
+      } else {
+        const { data: entRow, error: entErr } = await supabase
+          .from('analysis_entitlements')
+          .select('id')
+          .eq('tier', analysisTierChoice)
+          .is('used_at', null)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle()
 
-      if (entErr || !entRow?.id) {
-        setAyurvedaMessage('Error: Pay for the selected plan first, then generate.')
-        return
+        if (entErr || !entRow?.id) {
+          setAyurvedaMessage(
+            'Pay or apply the Gratitude coupon, then run lab analysis (Start analysis) or save manual entry on this report so your credit is applied. After that you can generate Ayurveda.',
+          )
+          return
+        }
+        entitlementId = entRow.id
       }
-      entitlementId = entRow.id
     }
 
     setGeneratingAyurveda(true)
@@ -767,9 +793,15 @@ function HealthReports({
     setError('')
     try {
       let reportId = manualReportId
+      let needsCreditConsumeAfterReadings = false
       if (!reportId) {
         if (!manualReportName.trim()) {
           setError('Please enter a report name')
+          setSavingManual(false)
+          return
+        }
+        if (!gratitudeFullAccess && !unusedCreditForSelectedTier) {
+          setError('Pay for an analysis plan or apply the Gratitude coupon before saving a new manual report.')
           setSavingManual(false)
           return
         }
@@ -783,17 +815,33 @@ function HealthReports({
             file_url: null,
             file_type: 'manual',
             report_date: manualReportDate,
-            analysis_status: 'completed'
+            analysis_status: 'completed',
           })
           .select('id')
           .single()
         if (insertErr) throw insertErr
         reportId = newReport.id
+        needsCreditConsumeAfterReadings = !gratitudeFullAccess
       } else {
-        await supabase
+        const { data: meta, error: metaErr } = await supabase
+          .from('health_reports')
+          .select('lab_analysis_credit_consumed')
+          .eq('id', reportId)
+          .single()
+        if (metaErr) throw metaErr
+        if (!gratitudeFullAccess) {
+          if (!meta?.lab_analysis_credit_consumed && !unusedCreditForSelectedTier) {
+            setError('Pay or apply the Gratitude coupon before saving values to this report.')
+            setSavingManual(false)
+            return
+          }
+          needsCreditConsumeAfterReadings = !meta?.lab_analysis_credit_consumed
+        }
+        const { error: upErr } = await supabase
           .from('health_reports')
           .update({ report_date: manualReportDate, analysis_status: 'completed' })
           .eq('id', reportId)
+        if (upErr) throw upErr
       }
 
       const rows = []
@@ -825,6 +873,21 @@ function HealthReports({
         .from('health_parameter_readings')
         .insert(rows)
       if (readingsErr) throw readingsErr
+
+      if (needsCreditConsumeAfterReadings && !gratitudeFullAccess) {
+        const consumed = await consumeOneUnusedEntitlement(analysisTierChoice)
+        if (!consumed.ok) {
+          throw new Error(consumed.error?.message || 'Could not apply your analysis credit. Check entitlements or try again.')
+        }
+        const { error: flagErr } = await supabase
+          .from('health_reports')
+          .update({ lab_analysis_credit_consumed: true })
+          .eq('id', reportId)
+        if (flagErr) {
+          console.warn('lab_analysis_credit_consumed update failed — run supabase-health-reports-lab-analysis-credit.sql', flagErr)
+        }
+        await fetchEntitlements()
+      }
 
       setShowManualEntry(false)
       setManualReportId(null)
@@ -878,6 +941,7 @@ function HealthReports({
 
     setUploading(true)
     setError('')
+    setInfoNotice('')
     console.log('Starting upload process...')
 
     try {
@@ -929,14 +993,9 @@ function HealthReports({
 
       if (dbError) throw dbError
 
-      // Start AI analysis (run in background but catch errors)
-      // Pass both URL and file path - Edge Function can use path with service role
-      console.log('Starting AI analysis for report:', reportRecord.id)
-      analyzeReport(reportRecord.id, fileUrl, fileName, selectedFile.type).catch(err => {
-        console.error('Analysis failed:', err)
-        console.error('Error stack:', err.stack)
-        setError('Analysis failed: ' + (err.message || 'Unknown error. Please check browser console.'))
-      })
+      setInfoNotice(
+        'Upload saved. Pay or apply the Gratitude coupon in “Ayurveda analysis (paid)” below, then open this report and tap Start lab analysis.',
+      )
 
       // Reset form
       setSelectedFile(null)
@@ -958,6 +1017,12 @@ function HealthReports({
   }
 
   const analyzeReport = async (reportId, fileUrl, filePath, fileType) => {
+    if (!gratitudeFullAccess && !unusedCreditForSelectedTier) {
+      setError('Pay for an analysis plan or apply the Gratitude coupon before running lab analysis.')
+      alert('Pay or apply the Gratitude coupon first, then use Start lab analysis.')
+      return
+    }
+
     const startTime = Date.now()
     setAnalyzingReportId(reportId)
     setAnalysisStartTime(startTime)
@@ -991,6 +1056,22 @@ function HealthReports({
       await performAIAnalysis(fileUrl, filePath, fileType, reportId)
 
       console.log('✅ Analysis completed successfully')
+
+      if (!gratitudeFullAccess) {
+        const consumed = await consumeOneUnusedEntitlement(analysisTierChoice)
+        if (!consumed.ok) {
+          console.error('Could not mark analysis entitlement used after successful lab run:', consumed.error)
+        }
+        const { error: flagErr } = await supabase
+          .from('health_reports')
+          .update({ lab_analysis_credit_consumed: true })
+          .eq('id', reportId)
+        if (flagErr) {
+          console.warn('lab_analysis_credit_consumed column missing? Run supabase-health-reports-lab-analysis-credit.sql', flagErr)
+        }
+        await fetchEntitlements()
+      }
+
       setAnalysisCompleteReportId(reportId)
       clearAnalysisState()
       await loadReports()
@@ -1035,6 +1116,11 @@ function HealthReports({
   const handleManualAnalyze = async (report) => {
     if (!report.file_path && !report.file_url) {
       setError('Cannot analyze: File path or URL is missing')
+      return
+    }
+
+    if (!gratitudeFullAccess && !unusedCreditForSelectedTier) {
+      setError('Pay for an analysis plan or apply the Gratitude coupon before running lab analysis.')
       return
     }
 
@@ -1196,13 +1282,18 @@ function HealthReports({
       </div>
       {report.analysis_status === 'pending' && !analyzingThis && (
         <div className="pending-analysis">
-          <p>⏳ Analysis not started yet.</p>
+          <p>⏳ Lab analysis not started yet. Pay or apply the Gratitude coupon above, then run analysis (uses one credit).</p>
+          {!canRunLabAnalysis && (
+            <p className="pending-analysis-paywall">You need an unused plan credit or Gratitude access before Start lab analysis is available.</p>
+          )}
           <button
+            type="button"
             onClick={() => handleManualAnalyze(report)}
             className="analyze-btn"
-            disabled={analyzingThis}
+            disabled={analyzingThis || !canRunLabAnalysis}
+            title={!canRunLabAnalysis ? 'Pay or apply coupon in Ayurveda analysis (paid) first' : ''}
           >
-            Start Analysis
+            Start lab analysis
           </button>
         </div>
       )}
@@ -1452,6 +1543,15 @@ function HealthReports({
         </button>
       </div>
 
+      {infoNotice && (
+        <div className="health-reports-info-notice" role="status">
+          <p>{infoNotice}</p>
+          <button type="button" className="health-reports-info-dismiss" onClick={() => setInfoNotice('')}>
+            Dismiss
+          </button>
+        </div>
+      )}
+
       <div className="reports-tabs-row">
         <div className="reports-tabs">
           <button
@@ -1484,7 +1584,7 @@ function HealthReports({
       <div className="ayurveda-generate-section">
         <h3>Ayurveda analysis (paid)</h3>
         <p className="ayurveda-generate-hint">
-          Choose a plan, pay with Razorpay, then run <strong>Generate</strong> once per payment. Full plan includes dietary & lifestyle columns; Basic shows remedies only.
+          Choose a plan and pay (or apply the Gratitude coupon). One credit covers <strong>Start lab analysis</strong> on a report (PDF extraction) and then <strong>Generate Ayurveda analysis</strong> for that same report. Full plan includes dietary and lifestyle columns; Basic shows remedies only.
         </p>
         <p className="ayurveda-context-hint">With AI on, Full plan also runs personalized recommendations. Recommendations use profile context when AI is enabled.</p>
 
@@ -1521,7 +1621,9 @@ function HealthReports({
               Gratitude access active — all reports show full parameters, remedies, dietary, and lifestyle columns. Generate below is optional (e.g. for AI notes when AI is on).
             </span>
           ) : unusedCreditForSelectedTier ? (
-            <span className="analysis-credit-ok">You have an unused credit for this plan — you can generate once.</span>
+            <span className="analysis-credit-ok">
+              You have an unused credit for this plan — run Start lab analysis on a report first (uses the credit), then Generate Ayurveda for that report.
+            </span>
           ) : (
             <span className="analysis-credit-missing">No unused credit for this plan — apply a coupon or pay below first.</span>
           )}
@@ -1627,10 +1729,17 @@ function HealthReports({
               !ayurvedaReportId ||
               generatingAyurveda ||
               reportsForAyurveda.length === 0 ||
-              !unusedCreditForSelectedTier
+              !canGenerateAyurveda ||
+              ayurvedaTargetReport?.analysis_status !== 'completed'
             }
             className="upload-btn ayurveda-generate-btn"
-            title={!unusedCreditForSelectedTier ? 'Pay for the selected plan first' : ''}
+            title={
+              ayurvedaTargetReport?.analysis_status !== 'completed'
+                ? 'Complete lab analysis for this report first'
+                : !canGenerateAyurveda
+                  ? 'Pay, apply coupon, or use a report that already used a credit for lab analysis'
+                  : ''
+            }
           >
             {generatingAyurveda ? 'Generating...' : 'Generate Ayurveda analysis'}
           </button>
