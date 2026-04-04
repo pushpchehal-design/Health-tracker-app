@@ -1583,6 +1583,11 @@ function HealthReports({
         <>
       <div className="ayurveda-generate-section">
         <h3>Ayurveda analysis (paid)</h3>
+        {gratitudeFullAccess && (
+          <p className="ayurveda-gratitude-active-banner" role="status">
+            Gratitude access is active on this account: lab analysis and full Ayurveda columns do not require Razorpay. Use a different test user if you need to verify the payment flow.
+          </p>
+        )}
         <p className="ayurveda-generate-hint">
           Choose a plan and pay (or apply the Gratitude coupon). One credit covers <strong>Start lab analysis</strong> on a report (PDF extraction) and then <strong>Generate Ayurveda analysis</strong> for that same report. Full plan includes dietary and lifestyle columns; Basic shows remedies only.
         </p>

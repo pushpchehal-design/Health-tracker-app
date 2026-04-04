@@ -33,7 +33,10 @@ export async function analyzeHealthReport(fileUrl, filePath, fileType, reportId,
     // Call Supabase directly (Edge Function sets Access-Control-Allow-Origin: *). Avoids dev-only Vite proxy
     // misconfiguration that produced 404 → false "function not found" on localhost.
     const { data: { session } } = await supabase.auth.getSession()
-    const token = session?.access_token ?? supabaseAnonKey
+    if (!session?.access_token) {
+      throw new Error('You must be signed in to run lab analysis. Do not use the anon key as a user token.')
+    }
+    const token = session.access_token
     const functionUrl = `${supabaseUrl}/functions/v1/analyze-health-report`
     console.log('Edge Function URL:', supabaseUrl + '/functions/v1/analyze-health-report')
 

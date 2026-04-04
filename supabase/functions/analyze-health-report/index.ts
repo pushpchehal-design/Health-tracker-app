@@ -873,6 +873,70 @@ serve(async (req) => {
     // Initialize Supabase client with service role (can access private files)
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+    // --- Paywall (server-side): signed-in owner only; Gratitude OR unused analysis credit; fresh report only ---
+    const bearer = (authHeader || '').replace(/^Bearer\s+/i, '').trim()
+    if (!bearer) {
+      return new Response(
+        JSON.stringify({ error: 'Sign in required. Missing Authorization.' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const { data: authUserData, error: authUserErr } = await supabase.auth.getUser(bearer)
+    const uid = authUserData?.user?.id
+    if (authUserErr || !uid) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired session. Sign in again.' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+    const gratitude =
+      (authUserData.user.app_metadata as Record<string, unknown> | undefined)?.gratitude_full_access === true
+
+    const { data: reportGate, error: reportGateErr } = await supabase
+      .from('health_reports')
+      .select('user_id, analysis_status')
+      .eq('id', reportId)
+      .single()
+
+    if (reportGateErr || !reportGate || (reportGate as { user_id: string }).user_id !== uid) {
+      return new Response(
+        JSON.stringify({ error: 'Report not found or you do not have access.' }),
+        { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      )
+    }
+
+    const repStatus = String((reportGate as { analysis_status: string }).analysis_status || '')
+    if (!gratitude) {
+      if (repStatus !== 'pending' && repStatus !== 'processing') {
+        return new Response(
+          JSON.stringify({
+            error: 'This report is already analyzed. Upload a new file or use Gratitude access.',
+          }),
+          { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        )
+      }
+      const { count, error: entCountErr } = await supabase
+        .from('analysis_entitlements')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', uid)
+        .is('used_at', null)
+      if (entCountErr) {
+        console.error('analysis_entitlements count:', entCountErr)
+        return new Response(
+          JSON.stringify({ error: 'Could not verify payment status. Try again later.' }),
+          { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        )
+      }
+      if ((count ?? 0) < 1) {
+        return new Response(
+          JSON.stringify({
+            error: 'Pay or apply the Gratitude coupon before lab analysis. No unused analysis credit found.',
+          }),
+          { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        )
+      }
+    }
+
     // Get file from storage - prefer filePath (direct access) over fileUrl
     let arrayBuffer: ArrayBuffer
     
