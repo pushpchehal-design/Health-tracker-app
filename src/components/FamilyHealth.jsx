@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { formatDateDMY } from '../utils/dateFormat'
 import { supabase } from '../lib/supabase'
+import { clampPlausibleLabValue } from '../lib/plausibleLabValues'
 import {
   LineChart,
   Line,
@@ -122,6 +123,35 @@ function randomAbnormalValue(marker, low, high) {
     : minL + Math.random() * (low - minL)
   if (low >= 0 && raw < 0) return 0
   return raw
+}
+
+/**
+ * Draw abnormal values that stay outside the lab reference interval but inside plausible physiology
+ * (avoids impossible numbers such as urine pH 2.6).
+ */
+function randomAbnormalValuePlausible(marker, low, high) {
+  const maxAttempts = 18
+  for (let i = 0; i < maxAttempts; i++) {
+    const raw = randomAbnormalValue(marker, low, high)
+    const clamped = clampPlausibleLabValue(marker.name, marker.unit, raw)
+    if (clamped < low || clamped > high) return clamped
+  }
+  const dir = marker.direction || 'both'
+  const tryHighFirst = dir === 'high' || (dir === 'both' && Math.random() < 0.5)
+  const sides = tryHighFirst ? ['high', 'low'] : ['low', 'high']
+  for (const side of sides) {
+    for (let m = 1; m <= 25; m++) {
+      const bump = Math.max((high - low) * 0.04 * m, 0.0001)
+      let v = side === 'high' ? high + bump : low - bump
+      if (low >= 0 && v < 0) v = 0
+      const c = clampPlausibleLabValue(marker.name, marker.unit, v)
+      if (c < low || c > high) return c
+    }
+  }
+  const fallback = tryHighFirst
+    ? high + Math.max(0.001, (high - low) * 0.12)
+    : Math.max(0, low - Math.max(0.001, (high - low) * 0.12))
+  return clampPlausibleLabValue(marker.name, marker.unit, fallback)
 }
 
 /** When a marker is only in DB (not TEST_MARKERS_REMEDY), guess low vs high abnormal direction for plausible values. */
@@ -485,7 +515,9 @@ function FamilyHealth({ userId, userProfile, familyMembers }) {
           const high = Number(m.normal_high)
           if (Number.isNaN(low) || Number.isNaN(high) || high <= low) continue
           const outOfRange = allAbnormal || Math.random() < 0.45
-          const raw = outOfRange ? randomAbnormalValue(m, low, high) : randomInRange(low, high)
+          const raw = outOfRange
+            ? randomAbnormalValuePlausible(m, low, high)
+            : clampPlausibleLabValue(m.name, m.unit, randomInRange(low, high))
           const value = roundValue(raw, low, high)
           const status = value >= low && value <= high ? 'normal' : 'abnormal'
           rows.push({
@@ -527,7 +559,8 @@ function FamilyHealth({ userId, userProfile, familyMembers }) {
       <div className="family-health-test-data">
         <h3 className="family-health-test-data-title">Generate test data (testing only)</h3>
         <p className="family-health-test-data-hint">
-          Pick a date. <strong>Mixed random</strong> uses a built-in panel (~45% abnormal). <strong>All abnormal</strong> loads every marker from your reference list in the database (plus any built-in names not yet in that list) — each value is out of range so you can see missing remedy coverage in one pass.
+          Pick a date. <strong>Mixed random</strong> uses a built-in panel (~45% abnormal). <strong>All abnormal</strong> loads every marker from your reference list in the database (plus any built-in names not yet in that list) — each value is out of range so you can see missing remedy coverage in one pass. Abnormal values are clamped to{' '}
+          <strong>physiologically plausible</strong> ranges (e.g. urine pH 4–8.5) so tests do not invent impossible numbers. Real PDF uploads use extracted values only; they are not altered by this logic.
         </p>
         <div className="family-health-test-data-row family-health-test-data-mode">
           <label className="family-health-test-data-option">

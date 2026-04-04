@@ -323,16 +323,32 @@ function HealthReports({
     return best
   }
 
-  /** Fuzzy match remedy CSV marker_name to blood_marker_reference canonical + aliases + REMEDY_MARKER_SYNONYMS. */
+  /**
+   * missKind: no_remedy_db = ref OK, abnormal direction known, no ayurveda_remedy_lookup row.
+   * no_lab_reference = parameter name not in blood_marker_reference.
+   * other = loading, unparseable value, in-range vs abnormal mismatch, etc.
+   */
   function resolveRemedyForAbnormalParam(param, reference, remedyList) {
-    if (param.status !== 'abnormal') return { remedy: null, missReason: null }
+    if (param.status !== 'abnormal') {
+      return { remedy: null, missKind: null, condition: null, missDetail: null }
+    }
     if (!reference?.length || !remedyList?.length) {
-      return { remedy: null, missReason: 'Reference or remedy data is still loading or unavailable.' }
+      return {
+        remedy: null,
+        missKind: 'other',
+        condition: null,
+        missDetail: 'Reference or remedy data is still loading or unavailable.',
+      }
     }
     const refRow = findBloodRefRowForParamName(param.name, reference)
     const canonical = refRow?.name
     if (!canonical) {
-      return { remedy: null, missReason: 'This parameter name does not match any entry in the lab reference ranges.' }
+      return {
+        remedy: null,
+        missKind: 'no_lab_reference',
+        condition: null,
+        missDetail: null,
+      }
     }
     const matchNames = [canonical, ...(refRow.aliases || [])].map((n) => normalizeRemedyKey(n)).filter(Boolean)
     const extra = REMEDY_MARKER_SYNONYMS[canonical] || []
@@ -356,7 +372,9 @@ function HealthReports({
     if (!condition) {
       return {
         remedy: null,
-        missReason: Number.isNaN(valNum)
+        missKind: 'other',
+        condition: null,
+        missDetail: Number.isNaN(valNum)
           ? 'The value could not be read as a number.'
           : 'The value could not be classified as low or high from the available normal range (or it matches normal limits while still flagged abnormal).',
       }
@@ -374,7 +392,9 @@ function HealthReports({
     if (!bestRemedy || bestScore < REMEDY_FUZZY_MIN_SCORE) {
       return {
         remedy: null,
-        missReason: `No matching Ayurvedic remedy in the database for this marker when the value is ${condition}.`,
+        missKind: 'no_remedy_db',
+        condition,
+        missDetail: null,
       }
     }
     return {
@@ -384,7 +404,9 @@ function HealthReports({
         dietary_recommendations: bestRemedy.dietary_recommendations,
         dosage_notes: bestRemedy.dosage_notes,
       },
-      missReason: null,
+      missKind: null,
+      condition: null,
+      missDetail: null,
     }
   }
 
@@ -1230,9 +1252,13 @@ function HealthReports({
                 .filter((p) => p.status === 'abnormal')
                 .map((p) => {
                   const param = { name: p.name, value: p.value, normal_range: p.normal_range, status: 'abnormal' }
-                  const { remedy, missReason } = resolveRemedyForAbnormalParam(param, bloodMarkerReference, remedyLookup)
+                  const { remedy, missKind, condition, missDetail } = resolveRemedyForAbnormalParam(
+                    param,
+                    bloodMarkerReference,
+                    remedyLookup
+                  )
                   if (remedy) return null
-                  return { category, name: p.name, value: p.value, missReason }
+                  return { category, name: p.name, value: p.value, missKind, condition, missDetail }
                 })
                 .filter(Boolean)
             )
@@ -1301,26 +1327,63 @@ function HealthReports({
                 </div>
               )
             })}
-            {missedRemedyParams.length > 0 && (
-              <div className="report-missed-remedies" role="region" aria-label="Parameters without remedy data">
-                <h4 className="report-missed-remedies-title">Not covered by remedy database</h4>
-                <p className="report-missed-remedies-intro">
-                  The following abnormal parameters were flagged on this report, but the application did not find matching Ayurvedic remedy rows (name mismatch or missing data). Use this list to improve coverage.
-                </p>
-                <ul className="report-missed-remedies-list">
-                  {missedRemedyParams.map((row, i) => (
-                    <li key={`${row.name}-${i}`}>
-                      <span className="report-missed-name">{row.name}</span>
-                      {row.category && <span className="report-missed-cat">{row.category}</span>}
-                      {row.value != null && row.value !== '' && (
-                        <span className="report-missed-val">Value: {row.value}</span>
-                      )}
-                      {row.missReason && <span className="report-missed-reason">{row.missReason}</span>}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            {missedRemedyParams.length > 0 && (() => {
+              const colNoRemedy = missedRemedyParams.filter((r) => r.missKind === 'no_remedy_db')
+              const colNoRef = missedRemedyParams.filter((r) => r.missKind === 'no_lab_reference')
+              const colOther = missedRemedyParams.filter((r) => r.missKind === 'other')
+              const renderMissCell = (rows, emptyLabel) => (
+                <div className="report-missed-col-body">
+                  {rows.length === 0 ? (
+                    <p className="report-missed-empty">{emptyLabel}</p>
+                  ) : (
+                    <ul className="report-missed-col-list">
+                      {rows.map((row, i) => (
+                        <li key={`${row.name}-${i}`}>
+                          <span className="report-missed-name">{row.name}</span>
+                          {row.category && <span className="report-missed-cat">{row.category}</span>}
+                          {row.value != null && row.value !== '' && (
+                            <span className="report-missed-val">Value: {row.value}</span>
+                          )}
+                          {row.condition && (
+                            <span className="report-missed-direction">({row.condition})</span>
+                          )}
+                          {row.missDetail && (
+                            <span className="report-missed-reason">{row.missDetail}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )
+              return (
+                <div className="report-missed-remedies" role="region" aria-label="Parameters without remedy data">
+                  <h4 className="report-missed-remedies-title">Not covered by remedy database</h4>
+                  <p className="report-missed-remedies-intro">
+                    Abnormal parameters on this report grouped by why no remedy text was shown. Use this to improve reference aliases, remedy CSV rows, or data quality.
+                  </p>
+                  <div className="report-missed-remedies-grid">
+                    <div className="report-missed-col">
+                      <h5 className="report-missed-col-head">
+                        No matching Ayurvedic remedy in the database for this marker when the value is high.
+                        <span className="report-missed-col-head-note"> Same category when the value is low (direction shown per row).</span>
+                      </h5>
+                      {renderMissCell(colNoRemedy, 'None in this category.')}
+                    </div>
+                    <div className="report-missed-col">
+                      <h5 className="report-missed-col-head">
+                        This parameter name does not match any entry in the lab reference ranges.
+                      </h5>
+                      {renderMissCell(colNoRef, 'None in this category.')}
+                    </div>
+                    <div className="report-missed-col">
+                      <h5 className="report-missed-col-head">Any other condition.</h5>
+                      {renderMissCell(colOther, 'None in this category.')}
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         )
       })()}
