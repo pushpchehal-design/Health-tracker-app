@@ -73,25 +73,25 @@ serve(async (req) => {
       })
     }
 
-    // Gratitude: unlimited full access for all reports (not a single-use entitlement).
-    const { error: gratitudeErr } = await supabaseAdmin.from('user_analysis_gratitude').upsert(
-      { user_id: userId, granted_at: new Date().toISOString() },
-      { onConflict: 'user_id' },
-    )
-
-    if (gratitudeErr) {
-      console.error('grant-analysis-coupon gratitude upsert:', gratitudeErr)
-      return new Response(
-        JSON.stringify({
-          error:
-            gratitudeErr.message ||
-            'Could not apply coupon. Run supabase-user-analysis-gratitude.sql in the SQL editor if this table is missing.',
-        }),
-        {
-          status: 500,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
-        },
-      )
+    // Gratitude: store on Auth app_metadata (no extra DB table; survives new devices after session refresh).
+    const { data: existingUser, error: getErr } = await supabaseAdmin.auth.admin.getUserById(userId)
+    if (getErr || !existingUser?.user) {
+      console.error('grant-analysis-coupon getUserById:', getErr)
+      return new Response(JSON.stringify({ error: getErr?.message || 'Could not load user' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      })
+    }
+    const prevApp = (existingUser.user.app_metadata as Record<string, unknown>) ?? {}
+    const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      app_metadata: { ...prevApp, gratitude_full_access: true },
+    })
+    if (updateErr) {
+      console.error('grant-analysis-coupon updateUserById:', updateErr)
+      return new Response(JSON.stringify({ error: updateErr.message || 'Could not apply coupon' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      })
     }
 
     return new Response(JSON.stringify({ ok: true, gratitudeFullAccess: true }), {

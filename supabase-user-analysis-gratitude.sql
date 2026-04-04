@@ -1,5 +1,5 @@
--- Gratitude coupon: full report access (all parameters + remedies + dietary + lifestyle) for the user.
--- Run once in Supabase SQL Editor. Edge Function grant-analysis-coupon upserts into this table.
+-- LEGACY (optional): Gratitude is stored on Auth user.app_metadata.gratitude_full_access — no table required.
+-- This file is only if you still want a separate audit table; the app does not read it anymore.
 
 CREATE TABLE IF NOT EXISTS public.user_analysis_gratitude (
   user_id UUID PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,

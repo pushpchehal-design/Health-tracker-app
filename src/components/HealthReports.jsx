@@ -99,7 +99,8 @@ function HealthReports({
   const [couponInput, setCouponInput] = useState('')
   const [couponMessage, setCouponMessage] = useState('')
   const [couponSubmitting, setCouponSubmitting] = useState(false)
-  const [gratitudeFullAccess, setGratitudeFullAccess] = useState(false)
+  /** Until parent session refreshes after Apply; JWT also carries app_metadata.gratitude_full_access */
+  const [gratitudeCouponOptimistic, setGratitudeCouponOptimistic] = useState(false)
   const [activeTab, setActiveTab] = useState('analysis') // 'analysis' | 'archived'
   const [selectedReportIdForView, setSelectedReportIdForView] = useState(null) // single report to show in Report Analysis tab
   const [archivedExpandedMembers, setArchivedExpandedMembers] = useState({}) // { memberId: true } for expanded sections
@@ -110,32 +111,32 @@ function HealthReports({
   const fetchEntitlements = useCallback(async () => {
     if (!userId || !supabase) {
       setEntitlements([])
-      setGratitudeFullAccess(false)
       return
     }
     try {
-      const [entRes, gratRes] = await Promise.all([
-        supabase
-          .from('analysis_entitlements')
-          .select('id, tier, used_at, created_at')
-          .is('used_at', null)
-          .order('created_at', { ascending: true }),
-        supabase.from('user_analysis_gratitude').select('user_id').eq('user_id', userId).maybeSingle(),
-      ])
-      if (entRes.error) throw entRes.error
-      setEntitlements(entRes.data || [])
-      if (gratRes.error && gratRes.error.code !== 'PGRST116') {
-        console.warn('user_analysis_gratitude (optional):', gratRes.error.message)
-        setGratitudeFullAccess(false)
-      } else {
-        setGratitudeFullAccess(!!gratRes.data?.user_id)
-      }
+      const { data, error } = await supabase
+        .from('analysis_entitlements')
+        .select('id, tier, used_at, created_at')
+        .is('used_at', null)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      setEntitlements(data || [])
     } catch (e) {
       console.warn('Could not load analysis entitlements (run supabase-analysis-entitlements.sql if missing):', e?.message || e)
       setEntitlements([])
-      setGratitudeFullAccess(false)
     }
   }, [userId])
+
+  const gratitudeFullAccess =
+    gratitudeCouponOptimistic || !!user?.app_metadata?.gratitude_full_access
+
+  useEffect(() => {
+    if (!user) setGratitudeCouponOptimistic(false)
+  }, [user])
+
+  useEffect(() => {
+    if (user?.app_metadata?.gratitude_full_access) setGratitudeCouponOptimistic(false)
+  }, [user?.app_metadata?.gratitude_full_access])
 
   useEffect(() => {
     loadReports()
@@ -443,7 +444,8 @@ function HealthReports({
     try {
       const data = await grantAnalysisCoupon(supabase, analysisTierChoice, couponInput)
       if (data?.gratitudeFullAccess) {
-        setGratitudeFullAccess(true)
+        setGratitudeCouponOptimistic(true)
+        await supabase.auth.refreshSession()
         setCouponMessage(
           'Coupon applied — full access enabled for all your reports (all parameters, remedies, dietary & lifestyle columns).',
         )
