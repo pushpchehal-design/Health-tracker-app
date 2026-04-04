@@ -114,7 +114,7 @@ function HealthReports({
     let cancelled = false
     async function load() {
       const [refRes, remedyRes] = await Promise.all([
-        supabase.from('blood_marker_reference').select('name, aliases'),
+        supabase.from('blood_marker_reference').select('name, aliases, normal_low, normal_high, unit'),
         supabase.from('ayurveda_remedy_lookup').select('marker_name, condition, remedy_text, lifestyle_modification, dietary_recommendations, dosage_notes'),
       ])
       if (cancelled) return
@@ -172,23 +172,53 @@ function HealthReports({
   // 2. Analysis completes (in analyzeReport function)
   // 3. User uploads a new report
 
+  /** Map report parameter label to blood_marker_reference row (exact, then longest substring on name/aliases). */
+  function findBloodRefRowForParamName(paramName, reference) {
+    const nameTrim = (paramName || '').trim().toLowerCase()
+    if (!nameTrim || !reference?.length) return null
+    for (const r of reference) {
+      if (r.name?.toLowerCase() === nameTrim) return r
+      if ((r.aliases || []).some((a) => String(a).toLowerCase().trim() === nameTrim)) return r
+    }
+    let best = null
+    let bestLen = 0
+    for (const r of reference) {
+      const names = [r.name, ...(r.aliases || [])].filter(Boolean)
+      for (const cand of names) {
+        const c = String(cand).toLowerCase().trim()
+        if (c.length < 2) continue
+        if (nameTrim.includes(c) || c.includes(nameTrim)) {
+          if (c.length > bestLen) {
+            bestLen = c.length
+            best = r
+          }
+        }
+      }
+    }
+    return best
+  }
+
   function getRemedyForParam(param, reference, remedyList) {
     if (param.status !== 'abnormal' || !reference?.length || !remedyList?.length) return null
-    const nameTrim = (param.name || '').trim().toLowerCase()
-    const refRow = reference.find(
-      (r) => r.name?.toLowerCase() === nameTrim || (r.aliases || []).some((a) => String(a).toLowerCase() === nameTrim)
-    )
+    const refRow = findBloodRefRowForParamName(param.name, reference)
     const canonical = refRow?.name
     if (!canonical) return null
     const matchNames = [canonical, ...(refRow.aliases || [])].map((n) => (n || '').trim().toLowerCase()).filter(Boolean)
-    const numFromStr = (s) => (s && parseFloat(String(s).replace(/[^0-9.-]/g, ' ').trim().split(/\s+/)[0])) ?? NaN
+    const numFromStr = (s) => {
+      const m = String(s || '').match(/-?\d+\.?\d*(?:e[+-]?\d+)?/i)
+      return m ? parseFloat(m[0]) : NaN
+    }
     const valNum = numFromStr(param.value)
     const rangeStr = param.normal_range || ''
     const parts = rangeStr.replace(/[^0-9.-]/g, ' ').trim().split(/\s+/).filter(Boolean).map(Number).filter((n) => !Number.isNaN(n))
-    const low = parts[0]
-    const high = parts[1]
+    let low = parts[0]
+    let high = parts[1]
+    if ((Number.isNaN(low) || Number.isNaN(high)) && refRow.normal_low != null && refRow.normal_high != null) {
+      low = Number(refRow.normal_low)
+      high = Number(refRow.normal_high)
+    }
     const condition = !Number.isNaN(valNum) && !Number.isNaN(low) && !Number.isNaN(high)
-      ? (valNum < low ? 'low' : 'high')
+      ? (valNum < low ? 'low' : valNum > high ? 'high' : null)
       : null
     if (!condition) return null
     const remedy = remedyList.find(

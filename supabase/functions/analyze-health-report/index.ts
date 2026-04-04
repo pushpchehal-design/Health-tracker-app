@@ -1281,13 +1281,63 @@ Example: {"p":[{"n":"WBC -Total Leucocytes Count","v":"7.55 10^3/µL","r":"4.5-1
       }))
 
       function categoryForParam(paramName: string): string {
+        const row = findReferenceRowForAiName(paramName, refRowsFlat)
+        return row?.category ?? 'Other'
+      }
+
+      /** Same matching rules as text parser: exact name/alias first, else longest substring match. */
+      function findReferenceRowForAiName(paramName: string, rows: RefRow[]): RefRow | null {
         const nameLower = paramName.toLowerCase().trim()
-        for (const ref of refRowsFlat) {
-          if (ref.name.toLowerCase() === nameLower) return ref.category
-          if ((ref.aliases || []).some((a: string) => String(a).toLowerCase() === nameLower)) return ref.category
-          if (nameLower.includes(ref.name.toLowerCase()) || ref.name.toLowerCase().includes(nameLower)) return ref.category
+        let best: RefRow | null = null
+        let bestLen = 0
+        let exact = false
+        for (const row of rows) {
+          const namesToTry = [row.name, ...(row.aliases || [])].filter(Boolean)
+          for (const n of namesToTry) {
+            const nLower = n.toLowerCase()
+            const isExact = nameLower === nLower
+            const isContained = nameLower.includes(nLower) || nLower.includes(nameLower)
+            if (!isExact && !isContained) continue
+            if (isExact && !exact) {
+              best = row
+              bestLen = n.length
+              exact = true
+            } else if (!exact && isContained && n.length > bestLen) {
+              bestLen = n.length
+              best = row
+            }
+          }
         }
-        return 'Other'
+        return best
+      }
+
+      function parseLeadingLabNumber(valueStr: string): number | null {
+        const t = valueStr.trim().replace(/,/g, '.')
+        const m = t.match(/-?\d+\.?\d*(?:e[+-]?\d+)?/i)
+        if (!m) return null
+        const v = parseFloat(m[0])
+        return Number.isFinite(v) ? v : null
+      }
+
+      /** Compare value to reference range; scale ×1000 when report uses 10³ cells/µL style vs DB cells/mcL. */
+      function statusFromReferenceAndValue(
+        valueStr: string,
+        refRow: RefRow,
+        modelAbnormal: boolean,
+      ): { normalRange: string; status: string } {
+        const low = Number(refRow.normal_low)
+        const high = Number(refRow.normal_high)
+        const normalRange = `${refRow.normal_low} - ${refRow.normal_high} ${refRow.unit}`.trim()
+        let num = parseLeadingLabNumber(valueStr)
+        if (num === null || Number.isNaN(low) || Number.isNaN(high)) {
+          return { normalRange, status: modelAbnormal ? 'abnormal' : 'normal' }
+        }
+        let valForRange = num
+        if (high > 1000 && num < 1000 && isPlausibleValue(num * 1000, low, high)) {
+          valForRange = num * 1000
+        }
+        const inside = valForRange >= low && valForRange <= high
+        return { normalRange, status: inside ? 'normal' : 'abnormal' }
       }
 
       const byCategory: Record<string, { p: any[]; rl: string }> = {}
@@ -1305,28 +1355,20 @@ Example: {"p":[{"n":"WBC -Total Leucocytes Count","v":"7.55 10^3/µL","r":"4.5-1
         if (!name || !valueStr) continue
         const category = categoryForParam(name)
         if (!byCategory[category]) byCategory[category] = { p: [], rl: 'Low' }
-        const refRow = refRowsFlat.find((r: RefRow) => {
-          const n = name.toLowerCase()
-          const rn = r.name.toLowerCase()
-          if (rn === n) return true
-          if ((r.aliases || []).some((a: string) => String(a).toLowerCase() === n)) return true
-          if (n.includes(rn) || rn.includes(n)) return true
-          return false
-        })
+        const refRow = findReferenceRowForAiName(name, refRowsFlat)
         const isNumericValue = valueLooksNumeric(valueStr)
-        const exactOrAliasMatch = refRow && (
-          name.toLowerCase() === refRow.name.toLowerCase() ||
-          (refRow.aliases || []).some((a: string) => String(a).toLowerCase() === name.toLowerCase())
-        )
+        const modelAbnormal =
+          param.s === 'a' || param.s === 'abnormal' || param.status === 'abnormal'
         let normalRange: string
         let status: string
-        if (isNumericValue && exactOrAliasMatch && refRow) {
-          normalRange = `${refRow.normal_low} - ${refRow.normal_high} ${refRow.unit}`.trim()
-          status = (param.s === 'a' || param.s === 'abnormal' || param.status === 'abnormal') ? 'abnormal' : 'normal'
+        if (refRow) {
+          const computed = statusFromReferenceAndValue(valueStr, refRow, modelAbnormal)
+          normalRange = computed.normalRange
+          status = computed.status
         } else {
           normalRange = (param.r ?? param.normal_range ?? '').trim() || 'N/A'
           if (!isNumericValue) status = 'normal'
-          else status = (param.s === 'a' || param.s === 'abnormal' || param.status === 'abnormal') ? 'abnormal' : 'normal'
+          else status = modelAbnormal ? 'abnormal' : 'normal'
         }
         byCategory[category].p.push({ n: name, v: valueStr, r: normalRange, s: status })
       }
