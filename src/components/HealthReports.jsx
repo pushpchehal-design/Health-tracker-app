@@ -41,6 +41,17 @@ const REMEDY_MARKER_SYNONYMS = {
   LDH: ['LDH (Lactate Dehydrogenase)', 'Lactate Dehydrogenase'],
   'Apo B/Apo A1 Ratio': ['APO-B/APO-A1 Ratio', 'APO B/APO A1', 'ApoB/ApoA1'],
   'LDL/HDL Ratio': ['LDL/HDL Ratio', 'LDL / HDL Ratio'],
+  BNP: ['B-type Natriuretic Peptide', 'Brain Natriuretic Peptide', 'BNP, Serum'],
+  'NT-proBNP': ['NTproBNP', 'NT proBNP', 'N-terminal proBNP', 'NT-PROBNP'],
+  'Troponin T': ['TnT', 'Cardiac Troponin T', 'Troponin T, High Sensitive', 'High Sensitive Troponin T'],
+  'Troponin I': ['TnI', 'Cardiac Troponin I'],
+  'Lipoprotein(a)': ['Lp(a)', 'Lipoprotein (a)', 'LPA', 'Lp a', 'Lipoprotein a'],
+  Homocysteine: ['Hcy', 'Plasma Homocysteine', 'Homocysteine, Serum'],
+  PDW: ['Platelet Distribution Width'],
+  'Carbon Dioxide': ['CO2', 'Bicarbonate', 'HCO3', 'Bicarbonate, Serum', 'CO2, Total'],
+  'Urine pH': ['pH (Urine)', 'pH Urine', 'Urine Ph'],
+  'Urine Specific Gravity': ['Specific Gravity', 'USG', 'Specific Gravity, Urine'],
+  PSA: ['Prostate-Specific Antigen', 'Total PSA'],
 }
 
 const REMEDY_FUZZY_MIN_SCORE = 200
@@ -50,6 +61,19 @@ function normalizeRemedyKey(s) {
     .toLowerCase()
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+/** For matching report labels to blood_marker_reference when spacing/parens differ (e.g. Lipoprotein (a) vs Lipoprotein(a)). */
+function normalizeParamNameForRef(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[‐‑–—−]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function compactRefKey(s) {
+  return normalizeParamNameForRef(s).replace(/\s/g, '')
 }
 
 function stripParenLower(s) {
@@ -268,20 +292,25 @@ function HealthReports({
   // 2. Analysis completes (in analyzeReport function)
   // 3. User uploads a new report
 
-  /** Map report parameter label to blood_marker_reference row (exact, then longest substring on name/aliases). */
+  /** Map report parameter label to blood_marker_reference row (exact, compact, then longest substring on name/aliases). */
   function findBloodRefRowForParamName(paramName, reference) {
-    const nameTrim = (paramName || '').trim().toLowerCase()
+    const nameTrim = normalizeParamNameForRef(paramName)
     if (!nameTrim || !reference?.length) return null
+    const paramCompact = compactRefKey(paramName)
     for (const r of reference) {
-      if (r.name?.toLowerCase() === nameTrim) return r
-      if ((r.aliases || []).some((a) => String(a).toLowerCase().trim() === nameTrim)) return r
+      if (normalizeParamNameForRef(r.name) === nameTrim) return r
+      if ((r.aliases || []).some((a) => normalizeParamNameForRef(a) === nameTrim)) return r
+    }
+    for (const r of reference) {
+      if (compactRefKey(r.name) === paramCompact) return r
+      if ((r.aliases || []).some((a) => compactRefKey(a) === paramCompact)) return r
     }
     let best = null
     let bestLen = 0
     for (const r of reference) {
       const names = [r.name, ...(r.aliases || [])].filter(Boolean)
       for (const cand of names) {
-        const c = String(cand).toLowerCase().trim()
+        const c = normalizeParamNameForRef(cand)
         if (c.length < 2) continue
         if (nameTrim.includes(c) || c.includes(nameTrim)) {
           if (c.length > bestLen) {
