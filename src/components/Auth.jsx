@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { getAuthRedirectBaseUrl } from '../lib/appOrigin'
 import ThemePicker from './ThemePicker'
 import './Auth.css'
 
@@ -28,7 +29,7 @@ function Auth() {
     setSuccessMessage('')
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/`
+        redirectTo: getAuthRedirectBaseUrl(),
       })
       if (error) throw error
       setSuccessMessage('Check your email for the password reset link.')
@@ -54,6 +55,9 @@ function Auth() {
         const { error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: getAuthRedirectBaseUrl(),
+          },
         })
         if (error) throw error
         setSuccessMessage('Check your email for the confirmation link!')

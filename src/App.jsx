@@ -170,6 +170,8 @@ function App() {
           <li>Project → <strong>Settings</strong> → <strong>Environment Variables</strong></li>
           <li>Add <code className="app-shell-code">VITE_SUPABASE_URL</code> (e.g. <code className="app-shell-code">https://xxxx.supabase.co</code>)</li>
           <li>Add <code className="app-shell-code">VITE_SUPABASE_ANON_KEY</code> (anon public key from Supabase → Settings → API)</li>
+          <li>Add <code className="app-shell-code">VITE_APP_URL</code> to your live site (e.g. <code className="app-shell-code">https://your-app.vercel.app</code>) so email confirmation links do not point at localhost</li>
+          <li>In Supabase → <strong>Authentication</strong> → <strong>URL Configuration</strong>: set <strong>Site URL</strong> to the same live URL and add it under <strong>Redirect URLs</strong></li>
           <li>Redeploy: <strong>Deployments</strong> → ⋮ on latest → <strong>Redeploy</strong></li>
         </ul>
         <p className="app-shell-list" style={{ marginBottom: '1rem' }}>Locally: add them to <code className="app-shell-code">.env</code> and run <code className="app-shell-code">npm run dev</code>.</p>
