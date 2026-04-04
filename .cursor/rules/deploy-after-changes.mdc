@@ -1,0 +1,18 @@
+---
+description: After code changes, commit, push to main (Vercel), and deploy touched Supabase Edge Functions
+alwaysApply: true
+---
+
+# Deploy after every amend
+
+When you complete a task that changes this repo (source, styles, Supabase functions, SQL migrations, or config used in production):
+
+1. **Verify** — Run `npm run build` if you changed app source (`src/`, `vite.config`, etc.). Fix any failures before pushing.
+2. **Stage** — `git add` only intentional files. Do **not** commit `.env`, `*.docx` personal notes, or `supabase/.temp/` unless the user explicitly asked.
+3. **Commit** — One clear message describing what changed.
+4. **Push** — `git push origin main` so **Vercel** (GitHub integration) deploys the frontend. Do this without asking the user each time unless they said they want to review before push.
+5. **Supabase Edge Functions** — If you edited anything under `supabase/functions/`, deploy the affected function(s) to project `ogxcdxenrrrdpwlnwjhp`:
+   - `npx supabase functions deploy <function-name> --project-ref ogxcdxenrrrdpwlnwjhp`
+   - For `analyze-health-report` specifically, follow `.cursor/rules/supabase-edge-functions.mdc`.
+
+**Database:** SQL in `supabase/migrations/` or `supabase-*.sql` does not auto-apply on push; the user runs migrations in the Supabase SQL Editor or `supabase db push` when needed—mention that only if relevant.
