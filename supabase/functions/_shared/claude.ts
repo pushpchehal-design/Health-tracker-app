@@ -2,6 +2,32 @@
  * Default model IDs must match https://docs.anthropic.com/en/docs/about-claude/models (retired IDs → 404).
  */
 
+/** Strip BOM, whitespace, and wrapping quotes (common when pasting or using `--env-file`). */
+export function normalizeAnthropicApiKey(raw: string): string {
+  let k = (raw ?? '').replace(/^\uFEFF/, '').trim()
+  if (
+    (k.startsWith('"') && k.endsWith('"') && k.length >= 2) ||
+    (k.startsWith("'") && k.endsWith("'") && k.length >= 2)
+  ) {
+    k = k.slice(1, -1).trim()
+  }
+  return k
+}
+
+function anthropic401Hint(): string {
+  const base =
+    ' Set ANTHROPIC_API_KEY in Supabase → Edge Functions → Secrets to a valid key from https://console.anthropic.com/ (must start with sk-ant-). Do not wrap the value in quotes. If you use `supabase secrets set --env-file .env`, use ANTHROPIC_API_KEY=sk-ant-... with no quotes.'
+  try {
+    const h = new URL(Deno.env.get('SUPABASE_URL') || 'https://invalid').hostname
+    if (h && h !== 'invalid' && h.includes('supabase')) {
+      return `${base} This Edge Function reads secrets for Supabase host ${h} — your app’s VITE_SUPABASE_URL must be this same project, or you’ll be editing secrets in the wrong place.`
+    }
+  } catch {
+    /* ignore */
+  }
+  return base
+}
+
 /** PDF + vision report extraction (override with CLAUDE_VISION_MODEL secret). */
 const DEFAULT_VISION_MODEL = 'claude-sonnet-4-20250514'
 
@@ -77,8 +103,7 @@ export async function extractLabReportJsonWithClaude(opts: {
       hint =
         ' If the model was retired, set secret CLAUDE_VISION_MODEL to an ID from Anthropic’s model docs.'
     } else if (res.status === 401) {
-      hint =
-        ' Set ANTHROPIC_API_KEY in Supabase → Project Settings → Edge Functions → Secrets to a valid key from https://console.anthropic.com/ (usually starts with sk-ant-). No quotes or spaces. If you rotated the key, update the secret and try again.'
+      hint = ` ${anthropic401Hint()}`
     }
     throw new Error(`Claude API error (${res.status}). ${detail}${hint}`)
   }
@@ -129,6 +154,9 @@ export async function completeWithClaude(opts: {
   })
   if (!res.ok) {
     const t = await res.text()
+    if (res.status === 401) {
+      throw new Error(`Claude API error (401). invalid x-api-key${anthropic401Hint()}`)
+    }
     throw new Error(`Claude API ${res.status}: ${t.slice(0, 600)}`)
   }
   const j = (await res.json()) as {

@@ -10,7 +10,18 @@
 
 import 'dotenv/config'
 
-const key = (process.env.ANTHROPIC_API_KEY ?? '').trim()
+function normalizeAnthropicApiKey(raw) {
+  let k = (raw ?? '').replace(/^\uFEFF/, '').trim()
+  if (
+    (k.startsWith('"') && k.endsWith('"') && k.length >= 2) ||
+    (k.startsWith("'") && k.endsWith("'") && k.length >= 2)
+  ) {
+    k = k.slice(1, -1).trim()
+  }
+  return k
+}
+
+const key = normalizeAnthropicApiKey(process.env.ANTHROPIC_API_KEY ?? '')
 const model = process.env.CLAUDE_VERIFY_MODEL || 'claude-3-5-haiku-20241022'
 
 if (!key) {
