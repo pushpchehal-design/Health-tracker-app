@@ -72,10 +72,14 @@ export async function extractLabReportJsonWithClaude(opts: {
     } catch {
       /* keep slice */
     }
-    const hint =
-      res.status === 404
-        ? ' If the model was retired, set secret CLAUDE_VISION_MODEL to an ID from Anthropic’s model docs.'
-        : ''
+    let hint = ''
+    if (res.status === 404) {
+      hint =
+        ' If the model was retired, set secret CLAUDE_VISION_MODEL to an ID from Anthropic’s model docs.'
+    } else if (res.status === 401) {
+      hint =
+        ' Set ANTHROPIC_API_KEY in Supabase → Project Settings → Edge Functions → Secrets to a valid key from https://console.anthropic.com/ (usually starts with sk-ant-). No quotes or spaces. If you rotated the key, update the secret and try again.'
+    }
     throw new Error(`Claude API error (${res.status}). ${detail}${hint}`)
   }
 

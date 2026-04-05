@@ -8,7 +8,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { completeWithClaude } from '../_shared/claude.ts'
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
-const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') ?? ''
+const ANTHROPIC_API_KEY = (Deno.env.get('ANTHROPIC_API_KEY') ?? '').trim()
 /** `gemini` (default) | `claude` — Claude needs ANTHROPIC_API_KEY; embeddings always use GEMINI_API_KEY. */
 const AYURVEDA_LLM = (Deno.env.get('AYURVEDA_LLM_PROVIDER') ?? 'gemini').toLowerCase()
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''

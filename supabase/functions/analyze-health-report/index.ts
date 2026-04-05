@@ -8,7 +8,7 @@ import { extractLabReportJsonWithClaude } from '../_shared/claude.ts'
 // unpdf is imported dynamically inside the handler to avoid BOOT_ERROR at cold start
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
-const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') ?? ''
+const ANTHROPIC_API_KEY = (Deno.env.get('ANTHROPIC_API_KEY') ?? '').trim()
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
