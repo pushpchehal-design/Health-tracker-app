@@ -204,6 +204,15 @@ Output only the report text. No greeting. Start with **Key Findings:**.`
           { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
         )
       }
+      if (!ANTHROPIC_API_KEY.startsWith('sk-ant')) {
+        return new Response(
+          JSON.stringify({
+            error:
+              'ANTHROPIC_API_KEY does not look like a Claude key (must start with sk-ant-). Replace it from console.anthropic.com → API keys.',
+          }),
+          { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        )
+      }
       try {
         recText = await completeWithClaude({
           apiKey: ANTHROPIC_API_KEY,

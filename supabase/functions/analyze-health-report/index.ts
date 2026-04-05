@@ -1174,6 +1174,11 @@ serve(async (req) => {
           'You selected Claude for report analysis, but ANTHROPIC_API_KEY is not set. Add it in Supabase → Edge Functions → Secrets, or choose Gemini in the sidebar.',
         )
       }
+      if (!ANTHROPIC_API_KEY.startsWith('sk-ant')) {
+        throw new Error(
+          'ANTHROPIC_API_KEY in Supabase does not look like a Claude key (expected to start with sk-ant-). Open https://console.anthropic.com/ → API keys, create or copy the full key, and replace the secret — avoid pasting Git hashes, Razorpay keys, or other tokens.',
+        )
+      }
     } else if (!GEMINI_API_KEY) {
       throw new Error(
         'Gemini is selected for report analysis but GEMINI_API_KEY is missing or invalid. Fix the key in Supabase secrets, or select Claude.',
