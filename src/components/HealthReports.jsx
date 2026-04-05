@@ -398,6 +398,15 @@ function HealthReports({
     if (r && !r.archived) setSelectedReportIdForView(ayurvedaReportId)
   }, [ayurvedaReportId, reports])
 
+  // Match plan radio to the selected report’s tier so Generate Analysis doesn’t run as Basic on a Full report.
+  useEffect(() => {
+    if (!ayurvedaReportId) return
+    const r = (reports || []).find((x) => x.id === ayurvedaReportId)
+    if (!r?.ayurveda_tier) return
+    if (r.ayurveda_tier === 'full') setAnalysisTierChoice(TIER_FULL)
+    else if (r.ayurveda_tier === 'basic') setAnalysisTierChoice(TIER_BASIC)
+  }, [ayurvedaReportId, reports])
+
   // Progress bar updates ~10×/s while analysis wait is in progress
   useEffect(() => {
     if (!analyzingReportId || analysisStartTime == null) return
@@ -850,7 +859,21 @@ function HealthReports({
     try {
       await new Promise((r) => setTimeout(r, ANALYSIS_MIN_SECONDS * 1000))
 
-      const tier = gratitudeFullAccess ? TIER_FULL : analysisTierChoice
+      const rank = { [TIER_BASIC]: 1, [TIER_FULL]: 2 }
+      const reportTierId =
+        targetReport?.ayurveda_tier === 'full'
+          ? TIER_FULL
+          : targetReport?.ayurveda_tier === 'basic'
+            ? TIER_BASIC
+            : null
+      let tier
+      if (gratitudeFullAccess) {
+        tier = TIER_FULL
+      } else if (!reportTierId) {
+        tier = analysisTierChoice
+      } else {
+        tier = rank[reportTierId] >= rank[analysisTierChoice] ? reportTierId : analysisTierChoice
+      }
 
       if (tier === TIER_BASIC) {
         const patch = { ayurveda_tier: 'basic' }
@@ -1545,14 +1568,12 @@ function HealthReports({
           report.ayurveda_tier === 'basic' ||
           report.ayurveda_tier === 'full'
         let sections = getSectionsByCategory(report)
-        if (!ayurvedaUnlocked) {
-          sections = sections
-            .map(({ category, params }) => ({
-              category,
-              params: params.filter((p) => p.status === 'abnormal'),
-            }))
-            .filter((s) => s.params.length > 0)
-        }
+        sections = sections
+          .map(({ category, params }) => ({
+            category,
+            params: params.filter((p) => p.status === 'abnormal'),
+          }))
+          .filter((s) => s.params.length > 0)
         if (sections.length === 0) {
           return (
             <div className="analysis-results analysis-results-empty">
@@ -1564,7 +1585,7 @@ function HealthReports({
               <p>
                 {!ayurvedaUnlocked
                   ? 'No abnormal parameters were flagged on this report. If everything is in range, you can still purchase an Ayurveda pass for personalized guidance.'
-                  : 'No parameters in this report.'}
+                  : 'No abnormal parameters on this report — nothing to show in this table.'}
               </p>
             </div>
           )
