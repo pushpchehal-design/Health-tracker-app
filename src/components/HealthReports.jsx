@@ -1057,9 +1057,10 @@ function HealthReports({
         if (!consumed.ok) {
           throw new Error(consumed.error?.message || 'Could not apply your analysis credit. Check entitlements or try again.')
         }
+        const ayurvedaTier = analysisTierChoice === TIER_FULL ? 'full' : 'basic'
         const { error: flagErr } = await supabase
           .from('health_reports')
-          .update({ lab_analysis_credit_consumed: true })
+          .update({ lab_analysis_credit_consumed: true, ayurveda_tier: ayurvedaTier })
           .eq('id', reportId)
         if (flagErr) {
           console.warn('lab_analysis_credit_consumed update failed — run supabase-health-reports-lab-analysis-credit.sql', flagErr)
@@ -1240,14 +1241,26 @@ function HealthReports({
         if (!consumed.ok) {
           console.error('Could not mark analysis entitlement used after successful lab run:', consumed.error)
         }
+        const ayurvedaTier = analysisTierChoice === TIER_FULL ? 'full' : 'basic'
         const { error: flagErr } = await supabase
           .from('health_reports')
-          .update({ lab_analysis_credit_consumed: true })
+          .update({
+            lab_analysis_credit_consumed: true,
+            ayurveda_tier: ayurvedaTier,
+          })
           .eq('id', reportId)
         if (flagErr) {
           console.warn('lab_analysis_credit_consumed column missing? Run supabase-health-reports-lab-analysis-credit.sql', flagErr)
         }
         await fetchEntitlements()
+      } else {
+        const { error: gratErr } = await supabase
+          .from('health_reports')
+          .update({ ayurveda_tier: 'full' })
+          .eq('id', reportId)
+        if (gratErr) {
+          console.warn('Could not set ayurveda_tier after lab analysis:', gratErr)
+        }
       }
 
       setAnalysisCompleteReportId(reportId)
@@ -1327,7 +1340,12 @@ function HealthReports({
         analysis_status: 'completed',
         analyzed_at: new Date().toISOString(),
       }
-      if (creditConsumedThisRun) patch.lab_analysis_credit_consumed = true
+      if (gratitudeFullAccess) {
+        patch.ayurveda_tier = 'full'
+      } else if (creditConsumedThisRun) {
+        patch.lab_analysis_credit_consumed = true
+        patch.ayurveda_tier = analysisTierChoice === TIER_FULL ? 'full' : 'basic'
+      }
 
       const { error: doneErr } = await supabase.from('health_reports').update(patch).eq('id', reportId)
       if (doneErr) throw new Error('Failed to complete report: ' + doneErr.message)
@@ -1540,8 +1558,7 @@ function HealthReports({
             <div className="analysis-results analysis-results-empty">
               {!ayurvedaUnlocked && (
                 <div className="analysis-paywall-banner" role="status">
-                  <strong>Ayurveda analysis is not included yet.</strong> Remedies, dietary guidance, and lifestyle recommendations unlock after you choose a plan, pay (or apply a coupon), and run{' '}
-                  <strong>Generate Ayurveda analysis</strong> in the section above.
+                  <strong>Ayurveda columns are not unlocked yet.</strong> Choose Basic or Full, pay (or apply a coupon), then complete lab analysis or manual entry for this report to unlock remedies (and dietary/lifestyle on Full).
                 </div>
               )}
               <p>
@@ -1575,8 +1592,7 @@ function HealthReports({
           <div className="analysis-results analysis-results-by-category">
             {!ayurvedaUnlocked && (
               <div className="analysis-paywall-banner" role="status">
-                <strong>Preview: abnormal findings only.</strong> Ayurvedic remedies, dietary recommendations, and lifestyle modifications are{' '}
-                <strong>not shown</strong> until you pay (or use an eligible coupon) and run <strong>Generate Ayurveda analysis</strong> above. This applies to uploaded reports and test data alike.
+                <strong>Preview: abnormal findings only.</strong> Pick Basic or Full above, then complete <strong>Start lab analysis</strong> (or manual entry) with your credit to unlock Ayurvedic remedies; <strong>Full (₹249)</strong> also unlocks dietary and lifestyle columns. Optional: <strong>Generate Analysis</strong> adds AI-written notes when AI is on.
               </div>
             )}
             {report.ayurveda_tier === 'basic' && !gratitudeFullAccess && (
